@@ -6,13 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import {
   Table,
   TableBody,
@@ -28,17 +22,19 @@ const allRules = ref<string[]>([]);
 const loading = ref(true);
 
 const search = ref("");
-const filterType = ref<string>();
-const filterExpansion = ref<string>();
-const filterKeyword = ref<string>();
-const filterRule = ref<string>();
+const filterTypes = ref<string[]>([]);
+const filterExpansions = ref<string[]>([]);
+const filterKeywords = ref<string[]>([]);
+const filterRules = ref<string[]>([]);
 const filterIssues = ref(false);
 const sortField = ref<keyof GearListItem>("name");
 const sortAsc = ref(true);
 
+const typeOptions = ["weapon", "armor", "item", "other"];
+
 const expansions = computed(() => {
   const set = new Set(items.value.map((i) => i.expansion).filter(Boolean));
-  return [...set].sort();
+  return [...set].sort() as string[];
 });
 
 const filtered = computed(() => {
@@ -48,11 +44,11 @@ const filtered = computed(() => {
     const q = search.value.toLowerCase();
     result = result.filter((i) => i.name.toLowerCase().includes(q));
   }
-  if (filterType.value) {
-    result = result.filter((i) => i.type === filterType.value);
+  if (filterTypes.value.length) {
+    result = result.filter((i) => filterTypes.value.includes(i.type || ""));
   }
-  if (filterExpansion.value) {
-    result = result.filter((i) => i.expansion === filterExpansion.value);
+  if (filterExpansions.value.length) {
+    result = result.filter((i) => filterExpansions.value.includes(i.expansion || ""));
   }
 
   const field = sortField.value;
@@ -83,8 +79,8 @@ function sortIndicator(field: keyof GearListItem) {
 async function fetchData() {
   loading.value = true;
   const params: Record<string, string> = {};
-  if (filterKeyword.value) params.keyword = filterKeyword.value;
-  if (filterRule.value) params.rule = filterRule.value;
+  if (filterKeywords.value.length) params.keyword = filterKeywords.value.join(",");
+  if (filterRules.value.length) params.rule = filterRules.value.join(",");
   if (filterIssues.value) params.issues = "true";
   items.value = await listGear(params);
   loading.value = false;
@@ -97,60 +93,43 @@ onMounted(async () => {
   await fetchData();
 });
 
-watch([filterKeyword, filterRule, filterIssues], fetchData);
+watch([filterKeywords, filterRules, filterIssues], fetchData);
 </script>
 
 <template>
   <div>
-    <div class="flex flex-wrap gap-2 mb-4">
+    <div class="flex flex-wrap gap-2 mb-4 items-start">
       <Input
         v-model="search"
         type="text"
         placeholder="Search by name..."
         class="flex-1 min-w-[200px]"
       />
-      <Select :model-value="filterType" @update:model-value="(v) => filterType = v || undefined">
-        <SelectTrigger class="w-[150px]">
-          <SelectValue placeholder="All types" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="weapon">Weapon</SelectItem>
-          <SelectItem value="armor">Armor</SelectItem>
-          <SelectItem value="item">Item</SelectItem>
-          <SelectItem value="other">Other</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select :model-value="filterExpansion" @update:model-value="(v) => filterExpansion = v || undefined">
-        <SelectTrigger class="w-[180px]">
-          <SelectValue placeholder="All expansions" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem v-for="exp in expansions" :key="exp!" :value="exp!">
-            {{ exp }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-      <Select :model-value="filterKeyword" @update:model-value="(v) => { filterKeyword = v || undefined; fetchData() }">
-        <SelectTrigger class="w-[150px]">
-          <SelectValue placeholder="All keywords" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem v-for="kw in allKeywords" :key="kw" :value="kw">
-            {{ kw }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-      <Select :model-value="filterRule" @update:model-value="(v) => { filterRule = v || undefined; fetchData() }">
-        <SelectTrigger class="w-[150px]">
-          <SelectValue placeholder="All rules" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem v-for="rule in allRules" :key="rule" :value="rule">
-            {{ rule }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-      <div class="flex items-center gap-2">
+      <MultiSelect
+        v-model="filterTypes"
+        :options="typeOptions"
+        placeholder="All types"
+        class="w-[180px]"
+      />
+      <MultiSelect
+        v-model="filterExpansions"
+        :options="expansions"
+        placeholder="All expansions"
+        class="w-[200px]"
+      />
+      <MultiSelect
+        v-model="filterKeywords"
+        :options="allKeywords"
+        placeholder="All keywords"
+        class="w-[180px]"
+      />
+      <MultiSelect
+        v-model="filterRules"
+        :options="allRules"
+        placeholder="All rules"
+        class="w-[180px]"
+      />
+      <div class="flex items-center gap-2 h-9">
         <Checkbox
           id="issues"
           :checked="filterIssues"

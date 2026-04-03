@@ -51,16 +51,20 @@ router.get("/", (req: Request, res: Response) => {
     params.push(`%${req.query.search}%`);
   }
   if (req.query.keyword) {
+    const keywords = String(req.query.keyword).split(",");
+    const placeholders = keywords.map(() => "?").join(",");
     conditions.push(
-      "g.id IN (SELECT gear_id FROM gear_keywords WHERE keyword = ?)"
+      `g.id IN (SELECT gear_id FROM gear_keywords WHERE keyword IN (${placeholders}) GROUP BY gear_id HAVING COUNT(DISTINCT keyword) = ${keywords.length})`
     );
-    params.push(req.query.keyword);
+    params.push(...keywords);
   }
   if (req.query.rule) {
+    const rules = String(req.query.rule).split(",");
+    const placeholders = rules.map(() => "?").join(",");
     conditions.push(
-      "g.id IN (SELECT gear_id FROM gear_special_rules WHERE rule = ?)"
+      `g.id IN (SELECT gear_id FROM gear_special_rules WHERE rule IN (${placeholders}) GROUP BY gear_id HAVING COUNT(DISTINCT rule) = ${rules.length})`
     );
-    params.push(req.query.rule);
+    params.push(...rules);
   }
   if (req.query.issues === "true") {
     conditions.push(
