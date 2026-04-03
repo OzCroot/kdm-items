@@ -7,8 +7,12 @@ build/
 *.egg
 
 # Downloaded/generated data
-html_pages/
-kdm_gear.db
+scraper/html_pages/
+data/kdm_gear.db
+data/images/
+
+# Node
+node_modules/
 
 # Environment
 .env
