@@ -47,6 +47,37 @@ def migrate(db_path: Path):
     conn.execute("CREATE UNIQUE INDEX idx_gear_name_version ON gear(name, version)")
     print("  Created unique index: (name, version)")
 
+    # --- Create gear_special_rules table ---
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    if "gear_special_rules" not in tables:
+        print("  Creating table: gear_special_rules")
+        conn.execute("""
+            CREATE TABLE gear_special_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gear_id INTEGER NOT NULL REFERENCES gear(id),
+                rule TEXT NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX idx_gear_special_rules_gear_id ON gear_special_rules(gear_id)")
+        conn.execute("CREATE INDEX idx_gear_special_rules_rule ON gear_special_rules(rule)")
+
+        # Populate from existing special_rules_names JSON column
+        import json
+        rows = conn.execute(
+            "SELECT id, special_rules_names FROM gear WHERE special_rules_names IS NOT NULL AND special_rules_names != '[]'"
+        ).fetchall()
+        insert = conn.prepare("INSERT INTO gear_special_rules (gear_id, rule) VALUES (?, ?)") if False else None
+        count = 0
+        for gear_id, sr_json in rows:
+            for rule in json.loads(sr_json):
+                rule = rule.strip()
+                if rule:
+                    conn.execute("INSERT INTO gear_special_rules (gear_id, rule) VALUES (?, ?)", (gear_id, rule))
+                    count += 1
+        print(f"  Populated {count} special rules from {len(rows)} items")
+    else:
+        print("  Table already exists: gear_special_rules")
+
     # --- Fix 'weapon. melee' keyword bug ---
     rows = conn.execute(
         "SELECT id, gear_id FROM gear_keywords WHERE keyword = 'weapon. melee'"

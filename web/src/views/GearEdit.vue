@@ -14,6 +14,7 @@ const saving = ref(false);
 const saved = ref(false);
 const error = ref("");
 const newKeyword = ref("");
+const newRule = ref("");
 const newCostResource = ref("");
 const newCostQuantity = ref(1);
 
@@ -72,6 +73,20 @@ function addKeyword() {
 function removeKeyword(kw: string) {
   if (!gear.value) return;
   gear.value.keywords = gear.value.keywords.filter((k) => k !== kw);
+}
+
+function addRule() {
+  if (!gear.value || !newRule.value.trim()) return;
+  const rule = newRule.value.trim();
+  if (!gear.value.special_rules.includes(rule)) {
+    gear.value.special_rules.push(rule);
+  }
+  newRule.value = "";
+}
+
+function removeRule(rule: string) {
+  if (!gear.value) return;
+  gear.value.special_rules = gear.value.special_rules.filter((r) => r !== rule);
 }
 
 function addCost() {
@@ -219,6 +234,30 @@ watch(() => props.id, load);
                 @keydown.enter.prevent="addKeyword"
               />
               <button @click="addKeyword">+</button>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Special Rules -->
+        <fieldset>
+          <legend>Special Rules</legend>
+          <div class="tags">
+            <span
+              v-for="rule in gear.special_rules"
+              :key="rule"
+              class="tag rule-tag"
+              @click="removeRule(rule)"
+              title="Click to remove"
+            >
+              {{ rule }} ×
+            </span>
+            <div class="tag-input">
+              <input
+                v-model="newRule"
+                placeholder="Add rule..."
+                @keydown.enter.prevent="addRule"
+              />
+              <button @click="addRule">+</button>
             </div>
           </div>
         </fieldset>
@@ -446,6 +485,10 @@ legend {
 
 .tag:hover {
   background: #4a2020;
+}
+
+.rule-tag {
+  background: #3a2a4a;
 }
 
 .tag-input {

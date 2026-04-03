@@ -53,3 +53,9 @@ export interface CraftingCostRow {
   resource: string;
   quantity: number;
 }
+
+export interface SpecialRuleRow {
+  id: number;
+  gear_id: number;
+  rule: string;
+}

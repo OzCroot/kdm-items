@@ -1,10 +1,11 @@
 import { Router, Request, Response } from "express";
-import { getDb, GearRow, KeywordRow, CraftingCostRow } from "../db.js";
+import { getDb, GearRow, KeywordRow, CraftingCostRow, SpecialRuleRow } from "../db.js";
 
 const router = Router();
 
 interface GearWithRelations extends GearRow {
   keywords: string[];
+  special_rules: string[];
   crafting_costs: { resource: string; quantity: number }[];
 }
 
@@ -13,6 +14,9 @@ function enrichGear(gear: GearRow): GearWithRelations {
   const keywords = db
     .prepare("SELECT keyword FROM gear_keywords WHERE gear_id = ?")
     .all(gear.id) as KeywordRow[];
+  const rules = db
+    .prepare("SELECT rule FROM gear_special_rules WHERE gear_id = ?")
+    .all(gear.id) as SpecialRuleRow[];
   const costs = db
     .prepare("SELECT resource, quantity FROM crafting_costs WHERE gear_id = ?")
     .all(gear.id) as CraftingCostRow[];
@@ -23,6 +27,7 @@ function enrichGear(gear: GearRow): GearWithRelations {
       ? JSON.parse(gear.special_rules_names)
       : [],
     keywords: keywords.map((k) => k.keyword),
+    special_rules: rules.map((r) => r.rule),
     crafting_costs: costs.map((c) => ({ resource: c.resource, quantity: c.quantity })),
   };
 }
@@ -50,6 +55,12 @@ router.get("/", (req: Request, res: Response) => {
       "g.id IN (SELECT gear_id FROM gear_keywords WHERE keyword = ?)"
     );
     params.push(req.query.keyword);
+  }
+  if (req.query.rule) {
+    conditions.push(
+      "g.id IN (SELECT gear_id FROM gear_special_rules WHERE rule = ?)"
+    );
+    params.push(req.query.rule);
   }
   if (req.query.issues === "true") {
     conditions.push(
@@ -103,7 +114,7 @@ router.put("/:id", (req: Request, res: Response) => {
     hit_location, armor_rating, gained_by, card_text, crafting_location,
     special_rules_names, version, image_url, image_path,
     affinity_top, affinity_bottom, affinity_left, affinity_right,
-    keywords, crafting_costs,
+    keywords, special_rules, crafting_costs,
   } = req.body;
 
   const updateGear = db.prepare(`
@@ -141,6 +152,17 @@ router.put("/:id", (req: Request, res: Response) => {
       }
     }
 
+    // Update special rules
+    if (special_rules !== undefined) {
+      db.prepare("DELETE FROM gear_special_rules WHERE gear_id = ?").run(id);
+      const insertRule = db.prepare(
+        "INSERT INTO gear_special_rules (gear_id, rule) VALUES (?, ?)"
+      );
+      for (const rule of special_rules) {
+        insertRule.run(id, rule);
+      }
+    }
+
     // Update crafting costs
     if (crafting_costs !== undefined) {
       db.prepare("DELETE FROM crafting_costs WHERE gear_id = ?").run(id);
@@ -167,7 +189,7 @@ router.post("/", (req: Request, res: Response) => {
     hit_location, armor_rating, gained_by, card_text, crafting_location,
     special_rules_names, version, image_url, image_path,
     affinity_top, affinity_bottom, affinity_left, affinity_right,
-    keywords, crafting_costs,
+    keywords, special_rules, crafting_costs,
   } = req.body;
 
   if (!name) {
@@ -204,6 +226,15 @@ router.post("/", (req: Request, res: Response) => {
       }
     }
 
+    if (special_rules) {
+      const insertRule = db.prepare(
+        "INSERT INTO gear_special_rules (gear_id, rule) VALUES (?, ?)"
+      );
+      for (const rule of special_rules) {
+        insertRule.run(gearId, rule);
+      }
+    }
+
     if (crafting_costs) {
       const insertCost = db.prepare(
         "INSERT INTO crafting_costs (gear_id, resource, quantity) VALUES (?, ?, ?)"
@@ -234,6 +265,7 @@ router.delete("/:id", (req: Request, res: Response) => {
 
   db.transaction(() => {
     db.prepare("DELETE FROM gear_keywords WHERE gear_id = ?").run(id);
+    db.prepare("DELETE FROM gear_special_rules WHERE gear_id = ?").run(id);
     db.prepare("DELETE FROM crafting_costs WHERE gear_id = ?").run(id);
     db.prepare("DELETE FROM gear WHERE id = ?").run(id);
   })();

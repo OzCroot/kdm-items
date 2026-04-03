@@ -30,5 +30,6 @@ export interface GearDetail extends GearListItem {
   affinity_left: string | null;
   affinity_right: string | null;
   keywords: string[];
+  special_rules: string[];
   crafting_costs: CraftingCost[];
 }

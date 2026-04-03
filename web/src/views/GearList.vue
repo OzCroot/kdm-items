@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
-import { listGear, listKeywords } from "../api";
+import { listGear, listKeywords, listSpecialRules } from "../api";
 import type { GearListItem } from "../types";
 
 const items = ref<GearListItem[]>([]);
 const allKeywords = ref<string[]>([]);
+const allRules = ref<string[]>([]);
 const loading = ref(true);
 
 const search = ref("");
 const filterType = ref("");
 const filterExpansion = ref("");
 const filterKeyword = ref("");
+const filterRule = ref("");
 const filterIssues = ref(false);
 const sortField = ref<keyof GearListItem>("name");
 const sortAsc = ref(true);
@@ -63,17 +65,20 @@ async function fetchData() {
   loading.value = true;
   const params: Record<string, string> = {};
   if (filterKeyword.value) params.keyword = filterKeyword.value;
+  if (filterRule.value) params.rule = filterRule.value;
   if (filterIssues.value) params.issues = "true";
   items.value = await listGear(params);
   loading.value = false;
 }
 
 onMounted(async () => {
-  allKeywords.value = await listKeywords();
+  const [kws, rules] = await Promise.all([listKeywords(), listSpecialRules()]);
+  allKeywords.value = kws;
+  allRules.value = rules;
   await fetchData();
 });
 
-watch([filterKeyword, filterIssues], fetchData);
+watch([filterKeyword, filterRule, filterIssues], fetchData);
 </script>
 
 <template>
@@ -102,6 +107,12 @@ watch([filterKeyword, filterIssues], fetchData);
         <option value="">All keywords</option>
         <option v-for="kw in allKeywords" :key="kw" :value="kw">
           {{ kw }}
+        </option>
+      </select>
+      <select v-model="filterRule" @change="fetchData">
+        <option value="">All rules</option>
+        <option v-for="rule in allRules" :key="rule" :value="rule">
+          {{ rule }}
         </option>
       </select>
       <label class="issues-toggle">

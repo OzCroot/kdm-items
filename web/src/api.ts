@@ -46,6 +46,10 @@ export function listKeywords(): Promise<string[]> {
   return fetchJson("/api/keywords");
 }
 
+export function listSpecialRules(): Promise<string[]> {
+  return fetchJson("/api/special-rules");
+}
+
 export function imageUrl(imagePath: string): string {
   return `${API_BASE}/api/images/${imagePath}`;
 }

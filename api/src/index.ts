@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import gearRouter from "./routes/gear.js";
 import keywordsRouter from "./routes/keywords.js";
+import specialRulesRouter from "./routes/special-rules.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -16,6 +17,7 @@ app.use(express.json());
 // API routes
 app.use("/api/gear", gearRouter);
 app.use("/api/keywords", keywordsRouter);
+app.use("/api/special-rules", specialRulesRouter);
 
 // Serve card images
 app.use("/api/images", express.static(IMAGES_PATH));
