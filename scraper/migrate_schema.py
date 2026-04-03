@@ -78,6 +78,40 @@ def migrate(db_path: Path):
     else:
         print("  Table already exists: gear_special_rules")
 
+    # --- Create keyword_definitions table ---
+    if "keyword_definitions" not in tables:
+        print("  Creating table: keyword_definitions")
+        conn.execute("""
+            CREATE TABLE keyword_definitions (
+                keyword TEXT PRIMARY KEY,
+                definition TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        # Seed with all existing keywords
+        keywords = conn.execute("SELECT DISTINCT keyword FROM gear_keywords").fetchall()
+        for (kw,) in keywords:
+            conn.execute("INSERT OR IGNORE INTO keyword_definitions (keyword) VALUES (?)", (kw,))
+        print(f"  Seeded {len(keywords)} keyword definitions")
+    else:
+        print("  Table already exists: keyword_definitions")
+
+    # --- Create special_rule_definitions table ---
+    if "special_rule_definitions" not in tables:
+        print("  Creating table: special_rule_definitions")
+        conn.execute("""
+            CREATE TABLE special_rule_definitions (
+                rule TEXT PRIMARY KEY,
+                definition TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        # Seed with all existing rules
+        rules = conn.execute("SELECT DISTINCT rule FROM gear_special_rules").fetchall()
+        for (rule,) in rules:
+            conn.execute("INSERT OR IGNORE INTO special_rule_definitions (rule) VALUES (?)", (rule,))
+        print(f"  Seeded {len(rules)} special rule definitions")
+    else:
+        print("  Table already exists: special_rule_definitions")
+
     # --- Fix 'weapon. melee' keyword bug ---
     rows = conn.execute(
         "SELECT id, gear_id FROM gear_keywords WHERE keyword = 'weapon. melee'"

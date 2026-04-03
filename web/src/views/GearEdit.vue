@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getGear, updateGear, imageUrl, listGear } from "../api";
+import { getGear, updateGear, imageUrl, listGear, listKeywordsWithCounts, listSpecialRulesWithCounts } from "../api";
+import type { KeywordEntry, SpecialRuleEntry } from "../api";
 import type { GearDetail, GearListItem } from "../types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Autocomplete } from "@/components/ui/autocomplete";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { X, Plus, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-vue-next";
 
 const props = defineProps<{ id: string }>();
@@ -28,8 +31,12 @@ const loading = ref(true);
 const saving = ref(false);
 const saved = ref(false);
 const error = ref("");
-const newKeyword = ref("");
-const newRule = ref("");
+const allKeywordEntries = ref<KeywordEntry[]>([]);
+const allRuleEntries = ref<SpecialRuleEntry[]>([]);
+const allKeywords = computed(() => allKeywordEntries.value.map((e) => e.keyword));
+const allRules = computed(() => allRuleEntries.value.map((e) => e.rule));
+const keywordDefs = computed(() => Object.fromEntries(allKeywordEntries.value.map((e) => [e.keyword, e.definition])));
+const ruleDefs = computed(() => Object.fromEntries(allRuleEntries.value.map((e) => [e.rule, e.definition])));
 const newCostResource = ref("");
 const newCostQuantity = ref(1);
 
@@ -53,7 +60,12 @@ async function load() {
   try {
     gear.value = await getGear(gearId.value);
     if (!allItems.value.length) {
-      allItems.value = await listGear();
+      const [items, kws, rules] = await Promise.all([
+        listGear(), listKeywordsWithCounts(), listSpecialRulesWithCounts(),
+      ]);
+      allItems.value = items;
+      allKeywordEntries.value = kws;
+      allRuleEntries.value = rules;
     }
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "Failed to load";
@@ -76,13 +88,12 @@ async function save() {
   saving.value = false;
 }
 
-function addKeyword() {
-  if (!gear.value || !newKeyword.value.trim()) return;
-  const kw = newKeyword.value.trim().toLowerCase();
-  if (!gear.value.keywords.includes(kw)) {
+function addKeyword(value: string) {
+  if (!gear.value) return;
+  const kw = value.trim().toLowerCase();
+  if (kw && !gear.value.keywords.includes(kw)) {
     gear.value.keywords.push(kw);
   }
-  newKeyword.value = "";
 }
 
 function removeKeyword(kw: string) {
@@ -90,13 +101,12 @@ function removeKeyword(kw: string) {
   gear.value.keywords = gear.value.keywords.filter((k) => k !== kw);
 }
 
-function addRule() {
-  if (!gear.value || !newRule.value.trim()) return;
-  const rule = newRule.value.trim();
-  if (!gear.value.special_rules.includes(rule)) {
+function addRule(value: string) {
+  if (!gear.value) return;
+  const rule = value.trim();
+  if (rule && !gear.value.special_rules.includes(rule)) {
     gear.value.special_rules.push(rule);
   }
-  newRule.value = "";
 }
 
 function removeRule(rule: string) {
@@ -268,29 +278,31 @@ watch(() => props.id, load);
             <CardTitle class="text-sm">Keywords</CardTitle>
           </CardHeader>
           <CardContent>
-            <div class="flex flex-wrap gap-1.5 items-center">
-              <Badge
-                v-for="kw in gear.keywords"
-                :key="kw"
-                variant="secondary"
-                class="cursor-pointer gap-1"
-                @click="removeKeyword(kw)"
-              >
-                {{ kw }}
-                <X class="h-3 w-3" />
-              </Badge>
-              <div class="flex gap-1">
-                <Input
-                  v-model="newKeyword"
+            <TooltipProvider :delay-duration="200">
+              <div class="flex flex-wrap gap-1.5 items-center">
+                <Tooltip v-for="kw in gear.keywords" :key="kw">
+                  <TooltipTrigger as-child>
+                    <Badge
+                      variant="secondary"
+                      class="cursor-pointer gap-1"
+                      @click="removeKeyword(kw)"
+                    >
+                      {{ kw }}
+                      <X class="h-3 w-3" />
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent v-if="keywordDefs[kw]" class="max-w-xs">
+                    {{ keywordDefs[kw] }}
+                  </TooltipContent>
+                </Tooltip>
+                <Autocomplete
+                  :options="allKeywords.filter((k: string) => !gear!.keywords.includes(k))"
                   placeholder="Add keyword..."
-                  class="h-7 w-28 text-xs"
-                  @keydown.enter.prevent="addKeyword"
+                  class="h-7 w-36 text-xs"
+                  @select="addKeyword"
                 />
-                <Button variant="outline" size="icon" class="h-7 w-7" @click="addKeyword">
-                  <Plus class="h-3 w-3" />
-                </Button>
               </div>
-            </div>
+            </TooltipProvider>
           </CardContent>
         </Card>
 
@@ -300,29 +312,31 @@ watch(() => props.id, load);
             <CardTitle class="text-sm">Special Rules</CardTitle>
           </CardHeader>
           <CardContent>
-            <div class="flex flex-wrap gap-1.5 items-center">
-              <Badge
-                v-for="rule in gear.special_rules"
-                :key="rule"
-                variant="outline"
-                class="cursor-pointer gap-1"
-                @click="removeRule(rule)"
-              >
-                {{ rule }}
-                <X class="h-3 w-3" />
-              </Badge>
-              <div class="flex gap-1">
-                <Input
-                  v-model="newRule"
+            <TooltipProvider :delay-duration="200">
+              <div class="flex flex-wrap gap-1.5 items-center">
+                <Tooltip v-for="rule in gear.special_rules" :key="rule">
+                  <TooltipTrigger as-child>
+                    <Badge
+                      variant="outline"
+                      class="cursor-pointer gap-1"
+                      @click="removeRule(rule)"
+                    >
+                      {{ rule }}
+                      <X class="h-3 w-3" />
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent v-if="ruleDefs[rule]" class="max-w-xs">
+                    {{ ruleDefs[rule] }}
+                  </TooltipContent>
+                </Tooltip>
+                <Autocomplete
+                  :options="allRules.filter((r: string) => !gear!.special_rules.includes(r))"
                   placeholder="Add rule..."
-                  class="h-7 w-28 text-xs"
-                  @keydown.enter.prevent="addRule"
+                  class="h-7 w-36 text-xs"
+                  @select="addRule"
                 />
-                <Button variant="outline" size="icon" class="h-7 w-7" @click="addRule">
-                  <Plus class="h-3 w-3" />
-                </Button>
               </div>
-            </div>
+            </TooltipProvider>
           </CardContent>
         </Card>
 
