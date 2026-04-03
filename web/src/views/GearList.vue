@@ -146,19 +146,19 @@ watch([filterKeywords, filterRules, filterIssues], fetchData);
     <Table v-else>
       <TableHeader>
         <TableRow>
-          <TableHead class="cursor-pointer select-none hover:text-foreground" @click="toggleSort('name')">
+          <TableHead class="cursor-pointer select-none hover:text-foreground w-[30%]" @click="toggleSort('name')">
             Name{{ sortIndicator("name") }}
           </TableHead>
-          <TableHead class="cursor-pointer select-none hover:text-foreground" @click="toggleSort('type')">
+          <TableHead class="cursor-pointer select-none hover:text-foreground w-[10%]" @click="toggleSort('type')">
             Type{{ sortIndicator("type") }}
           </TableHead>
-          <TableHead class="cursor-pointer select-none hover:text-foreground" @click="toggleSort('expansion')">
+          <TableHead class="cursor-pointer select-none hover:text-foreground w-[25%]" @click="toggleSort('expansion')">
             Expansion{{ sortIndicator("expansion") }}
           </TableHead>
-          <TableHead class="cursor-pointer select-none hover:text-foreground" @click="toggleSort('category')">
+          <TableHead class="cursor-pointer select-none hover:text-foreground w-[25%]" @click="toggleSort('category')">
             Category{{ sortIndicator("category") }}
           </TableHead>
-          <TableHead class="cursor-pointer select-none hover:text-foreground" @click="toggleSort('version')">
+          <TableHead class="cursor-pointer select-none hover:text-foreground w-[10%]" @click="toggleSort('version')">
             Ver{{ sortIndicator("version") }}
           </TableHead>
         </TableRow>

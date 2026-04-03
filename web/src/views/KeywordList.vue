@@ -118,7 +118,7 @@ onMounted(load);
     <Table v-if="!loading">
       <TableHeader>
         <TableRow>
-          <TableHead>Keyword</TableHead>
+          <TableHead class="w-[120px]">Keyword</TableHead>
           <TableHead>Definition</TableHead>
           <TableHead class="w-[80px] text-right">Items</TableHead>
           <TableHead class="w-[80px]"></TableHead>

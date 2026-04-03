@@ -409,23 +409,95 @@ watch(() => props.id, load);
             <CardTitle class="text-sm">Affinities</CardTitle>
           </CardHeader>
           <CardContent>
-            <div class="flex gap-3">
-              <div v-for="dir in (['top', 'right', 'bottom', 'left'] as const)" :key="dir" class="flex-1 space-y-1">
-                <Label>{{ dir.charAt(0).toUpperCase() + dir.slice(1) }}</Label>
+            <div class="grid grid-cols-3 gap-2 w-[340px] mx-auto">
+              <!-- Row 1: Top centered -->
+              <div />
+              <div class="space-y-1 text-center">
+                <Label class="text-center block text-xs">Top</Label>
                 <Select
-                  :model-value="(gear as Record<string, any>)[`affinity_${dir}`] ?? undefined"
-                  @update:model-value="(v) => (gear as Record<string, any>)[`affinity_${dir}`] = v ?? null"
+                  :model-value="gear.affinity_top ?? undefined"
+                  @update:model-value="(v) => gear!.affinity_top = v ?? null"
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="None" />
+                    <span v-if="gear.affinity_top" class="inline-flex items-center gap-1.5">
+                      <span class="h-3 w-3 rounded-full" :class="{ 'bg-red-500': gear.affinity_top === 'red', 'bg-green-500': gear.affinity_top === 'green', 'bg-blue-500': gear.affinity_top === 'blue' }" />
+                      {{ gear.affinity_top.charAt(0).toUpperCase() + gear.affinity_top.slice(1) }}
+                    </span>
+                    <SelectValue v-else placeholder="None" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="red">Red</SelectItem>
-                    <SelectItem value="green">Green</SelectItem>
-                    <SelectItem value="blue">Blue</SelectItem>
+                    <SelectItem value="red"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-red-500" />Red</span></SelectItem>
+                    <SelectItem value="green"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-green-500" />Green</span></SelectItem>
+                    <SelectItem value="blue"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-blue-500" />Blue</span></SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              <div />
+              <!-- Row 2: Left, empty center, Right -->
+              <div class="space-y-1 text-center">
+                <Label class="text-center block text-xs">Left</Label>
+                <Select
+                  :model-value="gear.affinity_left ?? undefined"
+                  @update:model-value="(v) => gear!.affinity_left = v ?? null"
+                >
+                  <SelectTrigger>
+                    <span v-if="gear.affinity_left" class="inline-flex items-center gap-1.5">
+                      <span class="h-3 w-3 rounded-full" :class="{ 'bg-red-500': gear.affinity_left === 'red', 'bg-green-500': gear.affinity_left === 'green', 'bg-blue-500': gear.affinity_left === 'blue' }" />
+                      {{ gear.affinity_left.charAt(0).toUpperCase() + gear.affinity_left.slice(1) }}
+                    </span>
+                    <SelectValue v-else placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="red"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-red-500" />Red</span></SelectItem>
+                    <SelectItem value="green"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-green-500" />Green</span></SelectItem>
+                    <SelectItem value="blue"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-blue-500" />Blue</span></SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div />
+              <div class="space-y-1 text-center">
+                <Label class="text-center block text-xs">Right</Label>
+                <Select
+                  :model-value="gear.affinity_right ?? undefined"
+                  @update:model-value="(v) => gear!.affinity_right = v ?? null"
+                >
+                  <SelectTrigger>
+                    <span v-if="gear.affinity_right" class="inline-flex items-center gap-1.5">
+                      <span class="h-3 w-3 rounded-full" :class="{ 'bg-red-500': gear.affinity_right === 'red', 'bg-green-500': gear.affinity_right === 'green', 'bg-blue-500': gear.affinity_right === 'blue' }" />
+                      {{ gear.affinity_right.charAt(0).toUpperCase() + gear.affinity_right.slice(1) }}
+                    </span>
+                    <SelectValue v-else placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="red"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-red-500" />Red</span></SelectItem>
+                    <SelectItem value="green"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-green-500" />Green</span></SelectItem>
+                    <SelectItem value="blue"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-blue-500" />Blue</span></SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <!-- Row 3: Bottom centered -->
+              <div />
+              <div class="space-y-1 text-center">
+                <Label class="text-center block text-xs">Bottom</Label>
+                <Select
+                  :model-value="gear.affinity_bottom ?? undefined"
+                  @update:model-value="(v) => gear!.affinity_bottom = v ?? null"
+                >
+                  <SelectTrigger>
+                    <span v-if="gear.affinity_bottom" class="inline-flex items-center gap-1.5">
+                      <span class="h-3 w-3 rounded-full" :class="{ 'bg-red-500': gear.affinity_bottom === 'red', 'bg-green-500': gear.affinity_bottom === 'green', 'bg-blue-500': gear.affinity_bottom === 'blue' }" />
+                      {{ gear.affinity_bottom.charAt(0).toUpperCase() + gear.affinity_bottom.slice(1) }}
+                    </span>
+                    <SelectValue v-else placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="red"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-red-500" />Red</span></SelectItem>
+                    <SelectItem value="green"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-green-500" />Green</span></SelectItem>
+                    <SelectItem value="blue"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-blue-500" />Blue</span></SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div />
             </div>
           </CardContent>
         </Card>

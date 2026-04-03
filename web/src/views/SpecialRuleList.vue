@@ -116,7 +116,7 @@ onMounted(load);
     <Table v-if="!loading">
       <TableHeader>
         <TableRow>
-          <TableHead>Rule</TableHead>
+          <TableHead class="w-[140px]">Rule</TableHead>
           <TableHead>Definition</TableHead>
           <TableHead class="w-[80px] text-right">Items</TableHead>
           <TableHead class="w-[80px]"></TableHead>
