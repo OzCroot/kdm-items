@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Downloaded/generated data
+html_pages/
+kdm_gear.db
+
+# Environment
+.env
+.venv/
+venv/
