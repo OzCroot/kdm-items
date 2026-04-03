@@ -2,6 +2,25 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { listGear, listKeywords, listSpecialRules } from "../api";
 import type { GearListItem } from "../types";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const items = ref<GearListItem[]>([]);
 const allKeywords = ref<string[]>([]);
@@ -9,10 +28,10 @@ const allRules = ref<string[]>([]);
 const loading = ref(true);
 
 const search = ref("");
-const filterType = ref("");
-const filterExpansion = ref("");
-const filterKeyword = ref("");
-const filterRule = ref("");
+const filterType = ref<string>();
+const filterExpansion = ref<string>();
+const filterKeyword = ref<string>();
+const filterRule = ref<string>();
 const filterIssues = ref(false);
 const sortField = ref<keyof GearListItem>("name");
 const sortAsc = ref(true);
@@ -82,160 +101,106 @@ watch([filterKeyword, filterRule, filterIssues], fetchData);
 </script>
 
 <template>
-  <div class="gear-list">
-    <div class="filters">
-      <input
+  <div>
+    <div class="flex flex-wrap gap-2 mb-4">
+      <Input
         v-model="search"
         type="text"
         placeholder="Search by name..."
-        class="search-input"
+        class="flex-1 min-w-[200px]"
       />
-      <select v-model="filterType">
-        <option value="">All types</option>
-        <option value="weapon">Weapon</option>
-        <option value="armor">Armor</option>
-        <option value="item">Item</option>
-        <option value="other">Other</option>
-      </select>
-      <select v-model="filterExpansion">
-        <option value="">All expansions</option>
-        <option v-for="exp in expansions" :key="exp" :value="exp">
-          {{ exp }}
-        </option>
-      </select>
-      <select v-model="filterKeyword" @change="fetchData">
-        <option value="">All keywords</option>
-        <option v-for="kw in allKeywords" :key="kw" :value="kw">
-          {{ kw }}
-        </option>
-      </select>
-      <select v-model="filterRule" @change="fetchData">
-        <option value="">All rules</option>
-        <option v-for="rule in allRules" :key="rule" :value="rule">
-          {{ rule }}
-        </option>
-      </select>
-      <label class="issues-toggle">
-        <input type="checkbox" v-model="filterIssues" />
-        Issues only
-      </label>
+      <Select :model-value="filterType" @update:model-value="(v) => filterType = v || undefined">
+        <SelectTrigger class="w-[150px]">
+          <SelectValue placeholder="All types" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="weapon">Weapon</SelectItem>
+          <SelectItem value="armor">Armor</SelectItem>
+          <SelectItem value="item">Item</SelectItem>
+          <SelectItem value="other">Other</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select :model-value="filterExpansion" @update:model-value="(v) => filterExpansion = v || undefined">
+        <SelectTrigger class="w-[180px]">
+          <SelectValue placeholder="All expansions" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem v-for="exp in expansions" :key="exp!" :value="exp!">
+            {{ exp }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+      <Select :model-value="filterKeyword" @update:model-value="(v) => { filterKeyword = v || undefined; fetchData() }">
+        <SelectTrigger class="w-[150px]">
+          <SelectValue placeholder="All keywords" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem v-for="kw in allKeywords" :key="kw" :value="kw">
+            {{ kw }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+      <Select :model-value="filterRule" @update:model-value="(v) => { filterRule = v || undefined; fetchData() }">
+        <SelectTrigger class="w-[150px]">
+          <SelectValue placeholder="All rules" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem v-for="rule in allRules" :key="rule" :value="rule">
+            {{ rule }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+      <div class="flex items-center gap-2">
+        <Checkbox
+          id="issues"
+          :checked="filterIssues"
+          @update:checked="(v: boolean) => filterIssues = v"
+        />
+        <Label for="issues" class="whitespace-nowrap cursor-pointer">Issues only</Label>
+      </div>
     </div>
 
-    <div class="count">{{ filtered.length }} items</div>
+    <p class="text-sm text-muted-foreground mb-2">{{ filtered.length }} items</p>
 
-    <div v-if="loading" class="loading">Loading...</div>
+    <div v-if="loading" class="text-center py-8 text-muted-foreground">Loading...</div>
 
-    <table v-else>
-      <thead>
-        <tr>
-          <th @click="toggleSort('name')">Name{{ sortIndicator("name") }}</th>
-          <th @click="toggleSort('type')">Type{{ sortIndicator("type") }}</th>
-          <th @click="toggleSort('expansion')">Expansion{{ sortIndicator("expansion") }}</th>
-          <th @click="toggleSort('category')">Category{{ sortIndicator("category") }}</th>
-          <th @click="toggleSort('version')">Ver{{ sortIndicator("version") }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="item in filtered" :key="item.id">
-          <td>
-            <router-link :to="`/gear/${item.id}`">{{ item.name }}</router-link>
-          </td>
-          <td>
-            <span class="type-badge" :class="item.type || 'other'">
+    <Table v-else>
+      <TableHeader>
+        <TableRow>
+          <TableHead class="cursor-pointer select-none hover:text-foreground" @click="toggleSort('name')">
+            Name{{ sortIndicator("name") }}
+          </TableHead>
+          <TableHead class="cursor-pointer select-none hover:text-foreground" @click="toggleSort('type')">
+            Type{{ sortIndicator("type") }}
+          </TableHead>
+          <TableHead class="cursor-pointer select-none hover:text-foreground" @click="toggleSort('expansion')">
+            Expansion{{ sortIndicator("expansion") }}
+          </TableHead>
+          <TableHead class="cursor-pointer select-none hover:text-foreground" @click="toggleSort('category')">
+            Category{{ sortIndicator("category") }}
+          </TableHead>
+          <TableHead class="cursor-pointer select-none hover:text-foreground" @click="toggleSort('version')">
+            Ver{{ sortIndicator("version") }}
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow v-for="item in filtered" :key="item.id">
+          <TableCell>
+            <router-link :to="`/gear/${item.id}`" class="text-blue-400 hover:underline">
+              {{ item.name }}
+            </router-link>
+          </TableCell>
+          <TableCell>
+            <Badge :variant="(item.type as any) || 'other'">
               {{ item.type || "?" }}
-            </span>
-          </td>
-          <td>{{ item.expansion }}</td>
-          <td>{{ item.category }}</td>
-          <td>{{ item.version }}</td>
-        </tr>
-      </tbody>
-    </table>
+            </Badge>
+          </TableCell>
+          <TableCell>{{ item.expansion }}</TableCell>
+          <TableCell>{{ item.category }}</TableCell>
+          <TableCell>{{ item.version }}</TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
   </div>
 </template>
-
-<style scoped>
-.filters {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-}
-
-.search-input {
-  flex: 1;
-  min-width: 200px;
-}
-
-.filters select {
-  min-width: 140px;
-}
-
-.issues-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  white-space: nowrap;
-}
-
-.count {
-  font-size: 0.85rem;
-  color: #888;
-  margin-bottom: 0.5rem;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th {
-  text-align: left;
-  padding: 0.5rem;
-  border-bottom: 2px solid #444;
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-}
-
-th:hover {
-  color: #adf;
-}
-
-td {
-  padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid #333;
-}
-
-tr:hover {
-  background: #1a1a2e;
-}
-
-td a {
-  color: #8bf;
-  text-decoration: none;
-}
-
-td a:hover {
-  text-decoration: underline;
-}
-
-.type-badge {
-  display: inline-block;
-  padding: 0.1rem 0.4rem;
-  border-radius: 3px;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.type-badge.weapon { background: #5a2020; color: #f88; }
-.type-badge.armor { background: #1a3a5a; color: #8bf; }
-.type-badge.item { background: #2a4a1a; color: #8f8; }
-.type-badge.other { background: #4a3a1a; color: #fb8; }
-
-.loading {
-  text-align: center;
-  padding: 2rem;
-  color: #888;
-}
-</style>

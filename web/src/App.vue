@@ -2,36 +2,16 @@
 </script>
 
 <template>
-  <div class="app">
-    <header>
-      <h1><router-link to="/">KDM Gear Database</router-link></h1>
+  <div class="mx-auto max-w-[1200px] px-4">
+    <header class="border-b border-border py-4 mb-6">
+      <h1 class="text-xl font-semibold m-0">
+        <router-link to="/" class="text-foreground no-underline hover:text-foreground/80">
+          KDM Gear Database
+        </router-link>
+      </h1>
     </header>
     <main>
       <router-view />
     </main>
   </div>
 </template>
-
-<style scoped>
-.app {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
-
-header {
-  padding: 1rem 0;
-  border-bottom: 1px solid #333;
-  margin-bottom: 1.5rem;
-}
-
-header h1 {
-  margin: 0;
-  font-size: 1.4rem;
-}
-
-header a {
-  color: inherit;
-  text-decoration: none;
-}
-</style>
