@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getGear, updateGear, listKeywordsWithCounts, listSpecialRulesWithCounts, listLocations, listVersions, listExpansions } from "../api";
+import { getGear, updateGear, listKeywordsWithCounts, listSpecialRulesWithCounts, listLocations, listVersions, listExpansions, listIcons, imageUrl } from "../api";
+import type { IconEntry } from "../api";
 import type { KeywordEntry, SpecialRuleEntry } from "../api";
 import type { GearDetail, CraftingCost } from "../types";
 import { useGearFiltersStore } from "../stores/gearFilters";
@@ -19,6 +20,7 @@ import ArmorStats from "../components/gear/ArmorStats.vue";
 import TagBadges from "../components/gear/TagBadges.vue";
 import AffinityPicker from "../components/gear/AffinityPicker.vue";
 import CraftingCostEditor from "../components/gear/CraftingCostEditor.vue";
+import GearCardPreview from "../components/gear/GearCardPreview.vue";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 
@@ -34,6 +36,14 @@ const allRuleEntries = ref<SpecialRuleEntry[]>([]);
 const allLocations = ref<string[]>([]);
 const allVersions = ref<string[]>([]);
 const allExpansions = ref<string[]>([]);
+const allIconEntries = ref<IconEntry[]>([]);
+const iconImages = computed(() => {
+  const map: Record<string, string> = {};
+  for (const icon of allIconEntries.value) {
+    map[icon.tag] = imageUrl(`icons/${icon.tag}.png`);
+  }
+  return map;
+});
 const allKeywords = computed(() => allKeywordEntries.value.map((e) => e.keyword));
 const allRules = computed(() => allRuleEntries.value.map((e) => e.rule));
 const keywordDefs = computed(() => Object.fromEntries(allKeywordEntries.value.map((e) => [e.keyword, e.definition])));
@@ -55,14 +65,15 @@ async function load() {
     gear.value = await getGear(gearId.value);
     await store.init();
     if (!allKeywordEntries.value.length) {
-      const [kws, rules, locs, vers, exps] = await Promise.all([
-        listKeywordsWithCounts(), listSpecialRulesWithCounts(), listLocations(), listVersions(), listExpansions(),
+      const [kws, rules, locs, vers, exps, icons] = await Promise.all([
+        listKeywordsWithCounts(), listSpecialRulesWithCounts(), listLocations(), listVersions(), listExpansions(), listIcons(),
       ]);
       allKeywordEntries.value = kws;
       allRuleEntries.value = rules;
       allLocations.value = locs;
       allVersions.value = vers;
       allExpansions.value = exps;
+      allIconEntries.value = icons;
     }
   } catch (e: unknown) {
     toast.error(e instanceof Error ? e.message : "Failed to load");
@@ -129,7 +140,7 @@ watch(() => props.id, load);
         <h2 class="text-lg font-semibold truncate flex-1">{{ gear.name }}</h2>
         <nav class="flex gap-4 shrink-0">
           <button
-            v-for="tab in [{ value: 'details', label: 'Details' }, { value: 'crafting', label: 'Crafting' }]"
+            v-for="tab in [{ value: 'details', label: 'Details' }, { value: 'crafting', label: 'Crafting' }, { value: 'preview', label: 'Preview' }]"
             :key="tab.value"
             class="text-sm pb-1 border-b-2 transition-colors"
             :class="activeTab === tab.value
@@ -230,6 +241,13 @@ watch(() => props.id, load);
               @remove-cost="removeCost"
             />
           </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="preview">
+        <div class="grid grid-cols-[300px_1fr] gap-6 mt-4">
+          <GearImageCard :image-path="gear.image_path" :name="gear.name" />
+          <GearCardPreview :gear="gear" :icon-images="iconImages" />
         </div>
       </TabsContent>
 

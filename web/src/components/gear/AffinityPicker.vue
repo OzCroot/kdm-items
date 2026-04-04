@@ -30,7 +30,7 @@ function capitalize(s: string) {
         <div />
         <div class="space-y-1 text-center">
           <Label class="text-center block text-xs">Top</Label>
-          <Select :model-value="top ?? undefined" @update:model-value="(v) => top = v ?? null">
+          <Select :model-value="top ?? 'none'" @update:model-value="(v) => top = v === 'none' ? null : v">
             <SelectTrigger>
               <span v-if="top" class="inline-flex items-center gap-1.5">
                 <span class="h-3 w-3 rounded-full" :class="colorClasses[top]" />
@@ -39,6 +39,7 @@ function capitalize(s: string) {
               <SelectValue v-else placeholder="None" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="none">None</SelectItem>
               <SelectItem v-for="c in ['red', 'green', 'blue']" :key="c" :value="c">
                 <span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full" :class="colorClasses[c]" />{{ capitalize(c) }}</span>
               </SelectItem>
@@ -50,7 +51,7 @@ function capitalize(s: string) {
         <!-- Left / Right -->
         <div class="space-y-1 text-center">
           <Label class="text-center block text-xs">Left</Label>
-          <Select :model-value="left ?? undefined" @update:model-value="(v) => left = v ?? null">
+          <Select :model-value="left ?? 'none'" @update:model-value="(v) => left = v === 'none' ? null : v">
             <SelectTrigger>
               <span v-if="left" class="inline-flex items-center gap-1.5">
                 <span class="h-3 w-3 rounded-full" :class="colorClasses[left]" />
@@ -59,6 +60,7 @@ function capitalize(s: string) {
               <SelectValue v-else placeholder="None" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="none">None</SelectItem>
               <SelectItem v-for="c in ['red', 'green', 'blue']" :key="c" :value="c">
                 <span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full" :class="colorClasses[c]" />{{ capitalize(c) }}</span>
               </SelectItem>
@@ -68,7 +70,7 @@ function capitalize(s: string) {
         <div />
         <div class="space-y-1 text-center">
           <Label class="text-center block text-xs">Right</Label>
-          <Select :model-value="right ?? undefined" @update:model-value="(v) => right = v ?? null">
+          <Select :model-value="right ?? 'none'" @update:model-value="(v) => right = v === 'none' ? null : v">
             <SelectTrigger>
               <span v-if="right" class="inline-flex items-center gap-1.5">
                 <span class="h-3 w-3 rounded-full" :class="colorClasses[right]" />
@@ -77,6 +79,7 @@ function capitalize(s: string) {
               <SelectValue v-else placeholder="None" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="none">None</SelectItem>
               <SelectItem v-for="c in ['red', 'green', 'blue']" :key="c" :value="c">
                 <span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full" :class="colorClasses[c]" />{{ capitalize(c) }}</span>
               </SelectItem>
@@ -88,7 +91,7 @@ function capitalize(s: string) {
         <div />
         <div class="space-y-1 text-center">
           <Label class="text-center block text-xs">Bottom</Label>
-          <Select :model-value="bottom ?? undefined" @update:model-value="(v) => bottom = v ?? null">
+          <Select :model-value="bottom ?? 'none'" @update:model-value="(v) => bottom = v === 'none' ? null : v">
             <SelectTrigger>
               <span v-if="bottom" class="inline-flex items-center gap-1.5">
                 <span class="h-3 w-3 rounded-full" :class="colorClasses[bottom]" />
@@ -97,6 +100,7 @@ function capitalize(s: string) {
               <SelectValue v-else placeholder="None" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="none">None</SelectItem>
               <SelectItem v-for="c in ['red', 'green', 'blue']" :key="c" :value="c">
                 <span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full" :class="colorClasses[c]" />{{ capitalize(c) }}</span>
               </SelectItem>
