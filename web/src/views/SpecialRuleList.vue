@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { listSpecialRulesWithCounts, updateSpecialRule, deleteSpecialRule, createSpecialRule, listSpecialRuleItems } from "../api";
 import ItemsDialog from "../components/ItemsDialog.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { usePerPage } from "../composables/usePerPage";
 import type { SpecialRuleEntry } from "../api";
 import { Input } from "@/components/ui/input";
@@ -25,17 +26,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2, Plus } from "lucide-vue-next";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Pencil, Trash2, Plus, SlidersHorizontal } from "lucide-vue-next";
 
 const items = ref<SpecialRuleEntry[]>([]);
 const search = ref("");
 const loading = ref(true);
 const page = ref(1);
 const perPage = usePerPage();
+const sortField = ref<"rule" | "count">("rule");
+const sortAsc = ref(true);
 
 const itemsDialogOpen = ref(false);
 const itemsDialogRule = ref("");
 
+const enableDelete = ref(false);
+const confirmDeleteOpen = ref(false);
+const confirmDeleteName = ref("");
+const confirmDeleteCount = ref(0);
 const editDialogOpen = ref(false);
 const isCreating = ref(false);
 const editingRule = ref<string | null>(null);
@@ -43,11 +52,20 @@ const editName = ref("");
 const editDefinition = ref("");
 
 const filtered = computed(() => {
-  if (!search.value) return items.value;
-  const q = search.value.toLowerCase();
-  return items.value.filter(
-    (i) => i.rule.toLowerCase().includes(q) || i.definition.toLowerCase().includes(q)
-  );
+  let result = items.value;
+  if (search.value) {
+    const q = search.value.toLowerCase();
+    result = result.filter(
+      (i) => i.rule.toLowerCase().includes(q) || i.definition.toLowerCase().includes(q)
+    );
+  }
+  result = [...result].sort((a, b) => {
+    const av = a[sortField.value];
+    const bv = b[sortField.value];
+    const cmp = typeof av === "number" ? av - (bv as number) : String(av).localeCompare(String(bv));
+    return sortAsc.value ? cmp : -cmp;
+  });
+  return result;
 });
 
 const paged = computed(() => {
@@ -56,6 +74,17 @@ const paged = computed(() => {
 });
 
 watch(search, () => { page.value = 1; });
+
+function toggleSort(field: typeof sortField.value) {
+  if (sortField.value === field) sortAsc.value = !sortAsc.value;
+  else { sortField.value = field; sortAsc.value = true; }
+  page.value = 1;
+}
+
+function sortIndicator(field: string) {
+  if (sortField.value !== field) return "";
+  return sortAsc.value ? " ↑" : " ↓";
+}
 
 async function load() {
   loading.value = true;
@@ -93,9 +122,14 @@ async function saveEdit() {
   await load();
 }
 
-async function remove(rule: string, count: number) {
-  if (!confirm(`Remove "${rule}" from ${count} items?`)) return;
-  await deleteSpecialRule(rule);
+function promptDelete(rule: string, count: number) {
+  confirmDeleteName.value = rule;
+  confirmDeleteCount.value = count;
+  confirmDeleteOpen.value = true;
+}
+
+async function confirmRemove() {
+  await deleteSpecialRule(confirmDeleteName.value);
   await load();
 }
 
@@ -114,6 +148,19 @@ onMounted(load);
         <Plus class="h-4 w-4 mr-1" /> Add Rule
       </Button>
       <Badge variant="secondary">{{ items.length }} rules</Badge>
+      <Popover>
+        <PopoverTrigger as-child>
+          <Button variant="outline" size="icon" class="h-9 w-9 shrink-0 ml-auto">
+            <SlidersHorizontal class="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent class="w-48" align="end">
+          <div class="flex items-center gap-2">
+            <Checkbox id="enable-delete-sr" v-model="enableDelete" />
+            <Label for="enable-delete-sr" class="text-sm">Enable deleting</Label>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
 
     <div v-if="loading" class="text-center py-8 text-muted-foreground">Loading...</div>
@@ -122,10 +169,10 @@ onMounted(load);
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead class="w-[140px]">Rule</TableHead>
+            <TableHead class="w-[140px] cursor-pointer select-none hover:text-foreground" @click="toggleSort('rule')">Rule{{ sortIndicator("rule") }}</TableHead>
             <TableHead>Definition</TableHead>
-            <TableHead class="w-[100px] text-right">Items</TableHead>
-            <TableHead class="w-[80px]"></TableHead>
+            <TableHead class="w-[100px] text-right cursor-pointer select-none hover:text-foreground" @click="toggleSort('count')">Items{{ sortIndicator("count") }}</TableHead>
+            <TableHead :class="enableDelete ? 'w-[100px]' : 'w-[60px]'"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -148,7 +195,7 @@ onMounted(load);
                 <Button variant="ghost" size="icon" class="h-8 w-8" @click="startEdit(item)">
                   <Pencil class="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" class="h-8 w-8 text-destructive" @click="remove(item.rule, item.count)">
+                <Button v-if="enableDelete" variant="ghost" size="icon" class="h-8 w-8 text-destructive" @click="promptDelete(item.rule, item.count)">
                   <Trash2 class="h-4 w-4" />
                 </Button>
               </div>
@@ -203,5 +250,7 @@ onMounted(load);
       :title="`Items with rule: ${itemsDialogRule}`"
       :fetch-items="() => listSpecialRuleItems(itemsDialogRule)"
     />
+
+    <ConfirmDialog v-model:open="confirmDeleteOpen" title="Delete Special Rule" :description="`Remove &quot;${confirmDeleteName}&quot; from ${confirmDeleteCount} items?`" @confirm="confirmRemove" />
   </div>
 </template>

@@ -44,6 +44,13 @@ const iconImages = computed(() => {
   }
   return map;
 });
+const iconDescriptions = computed(() => {
+  const map: Record<string, string> = {};
+  for (const icon of allIconEntries.value) {
+    map[icon.tag] = icon.description || icon.display_name;
+  }
+  return map;
+});
 const allKeywords = computed(() => allKeywordEntries.value.map((e) => e.keyword));
 const allRules = computed(() => allRuleEntries.value.map((e) => e.rule));
 const keywordDefs = computed(() => Object.fromEntries(allKeywordEntries.value.map((e) => [e.keyword, e.definition])));
@@ -247,7 +254,13 @@ watch(() => props.id, load);
       <TabsContent value="preview">
         <div class="grid grid-cols-[300px_1fr] gap-6 mt-4">
           <GearImageCard :image-path="gear.image_path" :name="gear.name" />
-          <GearCardPreview :gear="gear" :icon-images="iconImages" />
+          <GearCardPreview
+            :gear="gear"
+            :icon-images="iconImages"
+            :keyword-definitions="keywordDefs"
+            :rule-definitions="ruleDefs"
+            :icon-descriptions="iconDescriptions"
+          />
         </div>
       </TabsContent>
 

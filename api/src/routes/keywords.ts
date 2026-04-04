@@ -8,11 +8,11 @@ router.get("/", (_req: Request, res: Response) => {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT gk.keyword, COUNT(*) as count, COALESCE(kd.definition, '') as definition
-       FROM gear_keywords gk
-       LEFT JOIN keyword_definitions kd ON gk.keyword = kd.keyword
-       GROUP BY gk.keyword
-       ORDER BY gk.keyword`
+      `SELECT kd.keyword, COUNT(gk.id) as count, COALESCE(kd.definition, '') as definition
+       FROM keyword_definitions kd
+       LEFT JOIN gear_keywords gk ON kd.keyword = gk.keyword
+       GROUP BY kd.keyword
+       ORDER BY kd.keyword`
     )
     .all() as { keyword: string; count: number; definition: string }[];
   res.json(rows);

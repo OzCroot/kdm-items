@@ -11,14 +11,23 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, Plus } from "lucide-vue-next";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Pencil, Trash2, Plus, SlidersHorizontal } from "lucide-vue-next";
+import { Checkbox } from "@/components/ui/checkbox";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const items = ref<IconEntry[]>([]);
 const search = ref("");
 const loading = ref(true);
 const page = ref(1);
 const perPage = usePerPage();
+const sortField = ref<"tag" | "display_name">("tag");
+const sortAsc = ref(true);
 
+const enableDelete = ref(false);
+const confirmDeleteOpen = ref(false);
+const confirmDeleteName = ref("");
+const confirmDeleteCount = ref(0);
 const editDialogOpen = ref(false);
 const isCreating = ref(false);
 const editingTag = ref<string | null>(null);
@@ -28,12 +37,32 @@ const editIconUrl = ref("");
 const editDescription = ref("");
 
 const filtered = computed(() => {
-  if (!search.value) return items.value;
-  const q = search.value.toLowerCase();
-  return items.value.filter((i) => i.tag.toLowerCase().includes(q) || i.display_name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q));
+  let result = items.value;
+  if (search.value) {
+    const q = search.value.toLowerCase();
+    result = result.filter((i) => i.tag.toLowerCase().includes(q) || i.display_name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q));
+  }
+  result = [...result].sort((a, b) => {
+    const av = a[sortField.value];
+    const bv = b[sortField.value];
+    const cmp = typeof av === "number" ? av - (bv as number) : String(av).localeCompare(String(bv));
+    return sortAsc.value ? cmp : -cmp;
+  });
+  return result;
 });
 const paged = computed(() => filtered.value.slice((page.value - 1) * perPage.value, page.value * perPage.value));
 watch(search, () => { page.value = 1; });
+
+function toggleSort(field: typeof sortField.value) {
+  if (sortField.value === field) sortAsc.value = !sortAsc.value;
+  else { sortField.value = field; sortAsc.value = true; }
+  page.value = 1;
+}
+
+function sortIndicator(field: string) {
+  if (sortField.value !== field) return "";
+  return sortAsc.value ? " ↑" : " ↓";
+}
 
 async function load() { loading.value = true; items.value = await listIcons(); loading.value = false; }
 
@@ -55,9 +84,15 @@ async function saveEdit() {
   editDialogOpen.value = false; await load();
 }
 
-async function remove(tag: string) {
-  if (!confirm(`Delete icon "${tag}"?`)) return;
-  await deleteIcon(tag); await load();
+function promptDelete(tag: string) {
+  confirmDeleteName.value = tag;
+  confirmDeleteCount.value = 0;
+  confirmDeleteOpen.value = true;
+}
+
+async function confirmRemove() {
+  await deleteIcon(confirmDeleteName.value);
+  await load();
 }
 
 onMounted(load);
@@ -69,16 +104,29 @@ onMounted(load);
       <Input v-model="search" placeholder="Search icons..." class="max-w-sm" />
       <Button size="sm" @click="startCreate"><Plus class="h-4 w-4 mr-1" /> Add Icon</Button>
       <Badge variant="secondary">{{ items.length }} icons</Badge>
+      <Popover>
+        <PopoverTrigger as-child>
+          <Button variant="outline" size="icon" class="h-9 w-9 shrink-0 ml-auto">
+            <SlidersHorizontal class="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent class="w-48" align="end">
+          <div class="flex items-center gap-2">
+            <Checkbox id="enable-delete-icon" v-model="enableDelete" />
+            <Label for="enable-delete-icon" class="text-sm">Enable deleting</Label>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
     <div v-if="loading" class="text-center py-8 text-muted-foreground">Loading...</div>
     <template v-if="!loading">
       <Table>
         <TableHeader><TableRow>
           <TableHead class="w-[50px]"></TableHead>
-          <TableHead class="w-[140px]">Tag</TableHead>
-          <TableHead class="w-[140px]">Display Name</TableHead>
+          <TableHead class="w-[140px] cursor-pointer select-none hover:text-foreground" @click="toggleSort('tag')">Tag{{ sortIndicator("tag") }}</TableHead>
+          <TableHead class="w-[140px] cursor-pointer select-none hover:text-foreground" @click="toggleSort('display_name')">Display Name{{ sortIndicator("display_name") }}</TableHead>
           <TableHead>Description</TableHead>
-          <TableHead class="w-[80px]"></TableHead>
+          <TableHead :class="enableDelete ? 'w-[100px]' : 'w-[60px]'"></TableHead>
         </TableRow></TableHeader>
         <TableBody>
           <TableRow v-for="item in paged" :key="item.tag">
@@ -98,7 +146,7 @@ onMounted(load);
             <TableCell>
               <div class="flex justify-end gap-1">
                 <Button variant="ghost" size="icon" class="h-8 w-8" @click="startEdit(item)"><Pencil class="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" class="h-8 w-8 text-destructive" @click="remove(item.tag)"><Trash2 class="h-4 w-4" /></Button>
+                <Button v-if="enableDelete" variant="ghost" size="icon" class="h-8 w-8 text-destructive" @click="promptDelete(item.tag)"><Trash2 class="h-4 w-4" /></Button>
               </div>
             </TableCell>
           </TableRow>
@@ -118,5 +166,7 @@ onMounted(load);
         <DialogFooter><Button variant="outline" @click="editDialogOpen = false">Cancel</Button><Button @click="saveEdit">{{ isCreating ? "Add" : "Save" }}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog v-model:open="confirmDeleteOpen" title="Delete Icon" :description="`Delete icon &quot;${confirmDeleteName}&quot;?`" @confirm="confirmRemove" />
   </div>
 </template>

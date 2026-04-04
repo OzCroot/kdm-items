@@ -9,6 +9,8 @@ build/
 # Downloaded/generated data
 scraper/html_pages/
 data/kdm_gear.db
+data/kdm_gear.db-shm
+data/kdm_gear.db-wal
 data/images/
 
 # Node

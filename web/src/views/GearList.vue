@@ -91,8 +91,8 @@ onMounted(() => store.init());
           <div class="flex items-center gap-2">
             <Checkbox
               id="issues"
-              :checked="store.filterIssues"
-              @update:checked="(v: boolean | 'indeterminate') => { store.filterIssues = v === true; store.fetchData() }"
+              v-model="store.filterIssues"
+              @update:model-value="() => store.fetchData()"
             />
             <Label for="issues" class="text-sm">Issues only</Label>
           </div>
