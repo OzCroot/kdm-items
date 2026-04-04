@@ -1,27 +1,26 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getGear, updateGear, imageUrl, listKeywordsWithCounts, listSpecialRulesWithCounts } from "../api";
+import { getGear, updateGear, listKeywordsWithCounts, listSpecialRulesWithCounts, listLocations, listVersions, listExpansions } from "../api";
 import type { KeywordEntry, SpecialRuleEntry } from "../api";
-import type { GearDetail } from "../types";
+import type { GearDetail, CraftingCost } from "../types";
 import { useGearFiltersStore } from "../stores/gearFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Autocomplete } from "@/components/ui/autocomplete";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { X, Plus, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-vue-next";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import TagPickerDialog from "../components/TagPickerDialog.vue";
+import GearImageCard from "../components/gear/GearImageCard.vue";
+import WeaponStats from "../components/gear/WeaponStats.vue";
+import ArmorStats from "../components/gear/ArmorStats.vue";
+import TagBadges from "../components/gear/TagBadges.vue";
+import AffinityPicker from "../components/gear/AffinityPicker.vue";
+import CraftingCostEditor from "../components/gear/CraftingCostEditor.vue";
+import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-vue-next";
+import { toast } from "vue-sonner";
 
 const props = defineProps<{ id: string }>();
 const router = useRouter();
@@ -30,49 +29,43 @@ const store = useGearFiltersStore();
 const gear = ref<GearDetail | null>(null);
 const loading = ref(true);
 const saving = ref(false);
-const saved = ref(false);
-const error = ref("");
 const allKeywordEntries = ref<KeywordEntry[]>([]);
 const allRuleEntries = ref<SpecialRuleEntry[]>([]);
+const allLocations = ref<string[]>([]);
+const allVersions = ref<string[]>([]);
+const allExpansions = ref<string[]>([]);
 const allKeywords = computed(() => allKeywordEntries.value.map((e) => e.keyword));
 const allRules = computed(() => allRuleEntries.value.map((e) => e.rule));
 const keywordDefs = computed(() => Object.fromEntries(allKeywordEntries.value.map((e) => [e.keyword, e.definition])));
 const ruleDefs = computed(() => Object.fromEntries(allRuleEntries.value.map((e) => [e.rule, e.definition])));
-const newCostResource = ref("");
-const newCostQuantity = ref(1);
+const keywordPickerOpen = ref(false);
+const rulePickerOpen = ref(false);
+const activeTab = ref("details");
 
 const gearId = computed(() => parseInt(props.id, 10));
 
-// Use the store's filtered list for prev/next navigation
 const navItems = computed(() => store.filtered);
-const currentIndex = computed(() =>
-  navItems.value.findIndex((i) => i.id === gearId.value)
-);
-const prevId = computed(() =>
-  currentIndex.value > 0 ? navItems.value[currentIndex.value - 1].id : null
-);
-const nextId = computed(() =>
-  currentIndex.value < navItems.value.length - 1
-    ? navItems.value[currentIndex.value + 1].id
-    : null
-);
+const currentIndex = computed(() => navItems.value.findIndex((i) => i.id === gearId.value));
+const prevId = computed(() => currentIndex.value > 0 ? navItems.value[currentIndex.value - 1].id : null);
+const nextId = computed(() => currentIndex.value < navItems.value.length - 1 ? navItems.value[currentIndex.value + 1].id : null);
 
 async function load() {
   loading.value = true;
-  error.value = "";
   try {
     gear.value = await getGear(gearId.value);
-    // Ensure store is initialized for prev/next navigation
     await store.init();
     if (!allKeywordEntries.value.length) {
-      const [kws, rules] = await Promise.all([
-        listKeywordsWithCounts(), listSpecialRulesWithCounts(),
+      const [kws, rules, locs, vers, exps] = await Promise.all([
+        listKeywordsWithCounts(), listSpecialRulesWithCounts(), listLocations(), listVersions(), listExpansions(),
       ]);
       allKeywordEntries.value = kws;
       allRuleEntries.value = rules;
+      allLocations.value = locs;
+      allVersions.value = vers;
+      allExpansions.value = exps;
     }
   } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : "Failed to load";
+    toast.error(e instanceof Error ? e.message : "Failed to load");
   }
   loading.value = false;
 }
@@ -80,447 +73,182 @@ async function load() {
 async function save() {
   if (!gear.value) return;
   saving.value = true;
-  saved.value = false;
-  error.value = "";
   try {
     gear.value = await updateGear(gearId.value, gear.value);
-    saved.value = true;
-    setTimeout(() => (saved.value = false), 2000);
+    toast.success("Changes saved");
   } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : "Failed to save";
+    toast.error(e instanceof Error ? e.message : "Failed to save");
   }
   saving.value = false;
 }
 
-function addKeyword(value: string) {
-  if (!gear.value) return;
-  const kw = value.trim().toLowerCase();
-  if (kw && !gear.value.keywords.includes(kw)) {
-    gear.value.keywords.push(kw);
-  }
-}
-
-function removeKeyword(kw: string) {
-  if (!gear.value) return;
-  gear.value.keywords = gear.value.keywords.filter((k) => k !== kw);
-}
-
-function addRule(value: string) {
-  if (!gear.value) return;
-  const rule = value.trim();
-  if (rule && !gear.value.special_rules.includes(rule)) {
-    gear.value.special_rules.push(rule);
-  }
-}
-
-function removeRule(rule: string) {
-  if (!gear.value) return;
-  gear.value.special_rules = gear.value.special_rules.filter((r) => r !== rule);
-}
-
-function addCost() {
-  if (!gear.value || !newCostResource.value.trim()) return;
-  gear.value.crafting_costs.push({
-    resource: newCostResource.value.trim(),
-    quantity: newCostQuantity.value,
-  });
-  newCostResource.value = "";
-  newCostQuantity.value = 1;
+function addCost(cost: CraftingCost) {
+  gear.value?.crafting_costs.push(cost);
 }
 
 function removeCost(index: number) {
-  if (!gear.value) return;
-  gear.value.crafting_costs.splice(index, 1);
+  gear.value?.crafting_costs.splice(index, 1);
 }
 
 function navigateTo(id: number | null) {
   if (id !== null) router.push(`/gear/${id}`);
 }
 
-onMounted(load);
+function onKeydown(e: KeyboardEvent) {
+  const tag = (e.target as HTMLElement)?.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  if (e.key === "s" || e.key === "S") {
+    e.preventDefault();
+    save();
+  } else if (e.key === "ArrowLeft" && prevId.value !== null) {
+    e.preventDefault();
+    navigateTo(prevId.value);
+  } else if (e.key === "ArrowRight" && nextId.value !== null) {
+    e.preventDefault();
+    navigateTo(nextId.value);
+  }
+}
+
+onMounted(() => {
+  load();
+  window.addEventListener("keydown", onKeydown);
+});
+onUnmounted(() => {
+  window.removeEventListener("keydown", onKeydown);
+});
 watch(() => props.id, load);
 </script>
 
 <template>
   <div>
-    <!-- Top bar -->
-    <div class="flex items-center justify-between mb-4">
-      <router-link to="/" class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft class="h-4 w-4" />
-        Back to list
-      </router-link>
-      <div class="flex items-center gap-2">
-        <span v-if="saved" class="text-sm text-green-400">Saved</span>
-        <span v-if="error" class="text-sm text-red-400">{{ error }}</span>
-        <Button @click="save" :disabled="saving">
-          {{ saving ? "Saving..." : "Save" }}
-        </Button>
-      </div>
-    </div>
-
     <div v-if="loading" class="text-center py-8 text-muted-foreground">Loading...</div>
 
-    <div v-else-if="gear" class="grid grid-cols-[300px_1fr] gap-6">
-      <!-- Card image -->
-      <div class="sticky top-4 self-start">
-        <Card>
-          <CardContent class="p-2">
-            <img
-              v-if="gear.image_path"
-              :src="imageUrl(gear.image_path)"
-              :alt="gear.name"
-              class="w-full rounded-md"
-            />
-            <div
-              v-else
-              class="w-full aspect-[3/4] rounded-md bg-muted flex items-center justify-center text-muted-foreground"
-            >
-              No image
-            </div>
-          </CardContent>
-        </Card>
+    <Tabs v-else-if="gear" :model-value="activeTab" @update:model-value="(v) => activeTab = v as string">
+      <!-- App bar -->
+      <div class="-mx-4 px-4 py-3 mb-4 bg-card border-y border-border flex items-center gap-4">
+        <h2 class="text-lg font-semibold truncate flex-1">{{ gear.name }}</h2>
+        <nav class="flex gap-4 shrink-0">
+          <button
+            v-for="tab in [{ value: 'details', label: 'Details' }, { value: 'crafting', label: 'Crafting' }]"
+            :key="tab.value"
+            class="text-sm pb-1 border-b-2 transition-colors"
+            :class="activeTab === tab.value
+              ? 'text-foreground border-foreground'
+              : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground'"
+            @click="activeTab = tab.value"
+          >
+            {{ tab.label }}
+          </button>
+        </nav>
+        <Separator orientation="vertical" class="h-5" />
+        <div class="flex items-center gap-3 shrink-0">
+          <a
+            v-if="gear.url"
+            :href="gear.url"
+            target="_blank"
+            class="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+          >
+            <ExternalLink class="h-3.5 w-3.5" />
+            Wiki
+          </a>
+          <Button size="sm" @click="save" :disabled="saving">
+            {{ saving ? "Saving..." : "Save" }}
+          </Button>
+        </div>
       </div>
 
-      <!-- Form -->
-      <div class="flex flex-col gap-4">
-        <!-- Name -->
-        <div class="space-y-1">
-          <Label>Name</Label>
-          <Input v-model="gear.name" />
-        </div>
+      <TabsContent value="details">
+        <div class="grid grid-cols-[300px_1fr] gap-6 mt-4">
+          <GearImageCard :image-path="gear.image_path" :name="gear.name" />
 
-        <!-- Type + Version -->
-        <div class="flex gap-3">
-          <div class="flex-1 space-y-1">
-            <Label>Type</Label>
-            <Select :model-value="gear.type ?? undefined" @update:model-value="(v) => gear!.type = v ?? null">
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="weapon">Weapon</SelectItem>
-                <SelectItem value="armor">Armor</SelectItem>
-                <SelectItem value="item">Item</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div class="flex-1 space-y-1">
-            <Label>Version</Label>
-            <Input v-model="gear.version" />
-          </div>
-        </div>
-
-        <!-- Expansion + Category -->
-        <div class="flex gap-3">
-          <div class="flex-1 space-y-1">
-            <Label>Expansion</Label>
-            <Input v-model="gear.expansion" />
-          </div>
-          <div class="flex-1 space-y-1">
-            <Label>Category</Label>
-            <Input v-model="gear.category" />
-          </div>
-        </div>
-
-        <!-- Weapon Stats -->
-        <Card v-if="gear.type === 'weapon'">
-          <CardHeader class="pb-3">
-            <CardTitle class="text-sm">Weapon Stats</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div class="flex gap-3">
-              <div class="flex-1 space-y-1">
-                <Label>Speed</Label>
-                <Input v-model="gear.speed" />
+          <div class="flex flex-col gap-4">
+            <!-- Core fields 2x2 -->
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <Label>Name</Label>
+                <Input v-model="gear.name" />
               </div>
-              <div class="flex-1 space-y-1">
-                <Label>Accuracy</Label>
-                <Input v-model="gear.accuracy" />
-              </div>
-              <div class="flex-1 space-y-1">
-                <Label>Strength</Label>
-                <Input v-model="gear.strength" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <!-- Armor Stats -->
-        <Card v-if="gear.type === 'armor'">
-          <CardHeader class="pb-3">
-            <CardTitle class="text-sm">Armor Stats</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div class="flex gap-3">
-              <div class="flex-1 space-y-1">
-                <Label>Hit Location</Label>
-                <Select :model-value="gear.hit_location ?? undefined" @update:model-value="(v) => gear!.hit_location = v ?? null">
-                  <SelectTrigger>
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
+              <div class="space-y-1">
+                <Label>Type</Label>
+                <Select :model-value="gear.type ?? undefined" @update:model-value="(v) => gear!.type = v ?? null">
+                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Head">Head</SelectItem>
-                    <SelectItem value="Arms">Arms</SelectItem>
-                    <SelectItem value="Body">Body</SelectItem>
-                    <SelectItem value="Waist">Waist</SelectItem>
-                    <SelectItem value="Legs">Legs</SelectItem>
+                    <SelectItem value="weapon">Weapon</SelectItem>
+                    <SelectItem value="armor">Armor</SelectItem>
+                    <SelectItem value="item">Item</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div class="flex-1 space-y-1">
-                <Label>Armor Rating</Label>
-                <Input v-model="gear.armor_rating" />
+              <div class="space-y-1">
+                <Label>Expansion</Label>
+                <Select :model-value="gear.expansion ?? undefined" @update:model-value="(v) => gear!.expansion = v ?? null">
+                  <SelectTrigger><SelectValue placeholder="Select expansion" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="exp in allExpansions" :key="exp" :value="exp">{{ exp }}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div class="space-y-1">
+                <Label>Version</Label>
+                <Select :model-value="gear.version ?? undefined" @update:model-value="(v) => gear!.version = v ?? null">
+                  <SelectTrigger><SelectValue placeholder="Select version" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="ver in allVersions" :key="ver" :value="ver">{{ ver }}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <!-- Keywords -->
-        <Card>
-          <CardHeader class="pb-3">
-            <CardTitle class="text-sm">Keywords</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TooltipProvider :delay-duration="200">
-              <div class="flex flex-wrap gap-1.5 items-center">
-                <Tooltip v-for="kw in gear.keywords" :key="kw">
-                  <TooltipTrigger as-child>
-                    <Badge
-                      variant="secondary"
-                      class="cursor-pointer gap-1"
-                      @click="removeKeyword(kw)"
-                    >
-                      {{ kw }}
-                      <X class="h-3 w-3" />
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent v-if="keywordDefs[kw]" class="max-w-xs">
-                    {{ keywordDefs[kw] }}
-                  </TooltipContent>
-                </Tooltip>
-                <Autocomplete
-                  :options="allKeywords.filter((k: string) => !gear!.keywords.includes(k))"
-                  placeholder="Add keyword..."
-                  class="h-7 w-36 text-xs"
-                  @select="addKeyword"
-                />
-              </div>
-            </TooltipProvider>
-          </CardContent>
-        </Card>
+            <WeaponStats v-if="gear.type === 'weapon'" v-model:speed="gear.speed" v-model:accuracy="gear.accuracy" v-model:strength="gear.strength" />
+            <ArmorStats v-if="gear.type === 'armor'" v-model:hit-location="gear.hit_location" v-model:armor-rating="gear.armor_rating" />
 
-        <!-- Special Rules -->
-        <Card>
-          <CardHeader class="pb-3">
-            <CardTitle class="text-sm">Special Rules</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TooltipProvider :delay-duration="200">
-              <div class="flex flex-wrap gap-1.5 items-center">
-                <Tooltip v-for="rule in gear.special_rules" :key="rule">
-                  <TooltipTrigger as-child>
-                    <Badge
-                      variant="outline"
-                      class="cursor-pointer gap-1"
-                      @click="removeRule(rule)"
-                    >
-                      {{ rule }}
-                      <X class="h-3 w-3" />
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent v-if="ruleDefs[rule]" class="max-w-xs">
-                    {{ ruleDefs[rule] }}
-                  </TooltipContent>
-                </Tooltip>
-                <Autocomplete
-                  :options="allRules.filter((r: string) => !gear!.special_rules.includes(r))"
-                  placeholder="Add rule..."
-                  class="h-7 w-36 text-xs"
-                  @select="addRule"
-                />
-              </div>
-            </TooltipProvider>
-          </CardContent>
-        </Card>
+            <TagBadges title="Keywords" :items="gear.keywords" :definitions="keywordDefs" variant="secondary" @edit="keywordPickerOpen = true" />
+            <TagBadges title="Special Rules" :items="gear.special_rules" :definitions="ruleDefs" variant="outline" @edit="rulePickerOpen = true" />
 
-        <!-- Card Text -->
-        <div class="space-y-1">
-          <Label>Card Text</Label>
-          <Textarea v-model="gear.card_text" rows="4" />
-        </div>
-
-        <!-- Gained By -->
-        <div class="space-y-1">
-          <Label>Gained By</Label>
-          <Input v-model="gear.gained_by" />
-        </div>
-
-        <!-- Crafting -->
-        <Card>
-          <CardHeader class="pb-3">
-            <CardTitle class="text-sm">Crafting</CardTitle>
-          </CardHeader>
-          <CardContent class="space-y-3">
             <div class="space-y-1">
-              <Label>Crafting Location</Label>
-              <Input v-model="gear.crafting_location" />
+              <Label>Card Text</Label>
+              <Textarea v-model="gear.card_text" rows="4" />
             </div>
-            <Separator />
-            <div class="space-y-2">
-              <div
-                v-for="(cost, i) in gear.crafting_costs"
-                :key="i"
-                class="flex items-center gap-2"
-              >
-                <Input
-                  v-model.number="cost.quantity"
-                  type="number"
-                  min="1"
-                  class="w-16 text-center"
-                />
-                <span class="text-muted-foreground">×</span>
-                <Input v-model="cost.resource" class="flex-1" />
-                <Button variant="destructive" size="icon" class="h-8 w-8 shrink-0" @click="removeCost(i)">
-                  <X class="h-3 w-3" />
-                </Button>
-              </div>
-              <div class="flex items-center gap-2">
-                <Input
-                  v-model.number="newCostQuantity"
-                  type="number"
-                  min="1"
-                  class="w-16 text-center"
-                />
-                <span class="text-muted-foreground">×</span>
-                <Input
-                  v-model="newCostResource"
-                  placeholder="Resource..."
-                  class="flex-1"
-                  @keydown.enter.prevent="addCost"
-                />
-                <Button variant="outline" size="icon" class="h-8 w-8 shrink-0" @click="addCost">
-                  <Plus class="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        <!-- Affinities -->
-        <Card>
-          <CardHeader class="pb-3">
-            <CardTitle class="text-sm">Affinities</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div class="grid grid-cols-3 gap-2 w-[340px] mx-auto">
-              <!-- Row 1: Top centered -->
-              <div />
-              <div class="space-y-1 text-center">
-                <Label class="text-center block text-xs">Top</Label>
-                <Select
-                  :model-value="gear.affinity_top ?? undefined"
-                  @update:model-value="(v) => gear!.affinity_top = v ?? null"
-                >
-                  <SelectTrigger>
-                    <span v-if="gear.affinity_top" class="inline-flex items-center gap-1.5">
-                      <span class="h-3 w-3 rounded-full" :class="{ 'bg-red-500': gear.affinity_top === 'red', 'bg-green-500': gear.affinity_top === 'green', 'bg-blue-500': gear.affinity_top === 'blue' }" />
-                      {{ gear.affinity_top.charAt(0).toUpperCase() + gear.affinity_top.slice(1) }}
-                    </span>
-                    <SelectValue v-else placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="red"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-red-500" />Red</span></SelectItem>
-                    <SelectItem value="green"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-green-500" />Green</span></SelectItem>
-                    <SelectItem value="blue"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-blue-500" />Blue</span></SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div />
-              <!-- Row 2: Left, empty center, Right -->
-              <div class="space-y-1 text-center">
-                <Label class="text-center block text-xs">Left</Label>
-                <Select
-                  :model-value="gear.affinity_left ?? undefined"
-                  @update:model-value="(v) => gear!.affinity_left = v ?? null"
-                >
-                  <SelectTrigger>
-                    <span v-if="gear.affinity_left" class="inline-flex items-center gap-1.5">
-                      <span class="h-3 w-3 rounded-full" :class="{ 'bg-red-500': gear.affinity_left === 'red', 'bg-green-500': gear.affinity_left === 'green', 'bg-blue-500': gear.affinity_left === 'blue' }" />
-                      {{ gear.affinity_left.charAt(0).toUpperCase() + gear.affinity_left.slice(1) }}
-                    </span>
-                    <SelectValue v-else placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="red"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-red-500" />Red</span></SelectItem>
-                    <SelectItem value="green"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-green-500" />Green</span></SelectItem>
-                    <SelectItem value="blue"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-blue-500" />Blue</span></SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div />
-              <div class="space-y-1 text-center">
-                <Label class="text-center block text-xs">Right</Label>
-                <Select
-                  :model-value="gear.affinity_right ?? undefined"
-                  @update:model-value="(v) => gear!.affinity_right = v ?? null"
-                >
-                  <SelectTrigger>
-                    <span v-if="gear.affinity_right" class="inline-flex items-center gap-1.5">
-                      <span class="h-3 w-3 rounded-full" :class="{ 'bg-red-500': gear.affinity_right === 'red', 'bg-green-500': gear.affinity_right === 'green', 'bg-blue-500': gear.affinity_right === 'blue' }" />
-                      {{ gear.affinity_right.charAt(0).toUpperCase() + gear.affinity_right.slice(1) }}
-                    </span>
-                    <SelectValue v-else placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="red"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-red-500" />Red</span></SelectItem>
-                    <SelectItem value="green"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-green-500" />Green</span></SelectItem>
-                    <SelectItem value="blue"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-blue-500" />Blue</span></SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <!-- Row 3: Bottom centered -->
-              <div />
-              <div class="space-y-1 text-center">
-                <Label class="text-center block text-xs">Bottom</Label>
-                <Select
-                  :model-value="gear.affinity_bottom ?? undefined"
-                  @update:model-value="(v) => gear!.affinity_bottom = v ?? null"
-                >
-                  <SelectTrigger>
-                    <span v-if="gear.affinity_bottom" class="inline-flex items-center gap-1.5">
-                      <span class="h-3 w-3 rounded-full" :class="{ 'bg-red-500': gear.affinity_bottom === 'red', 'bg-green-500': gear.affinity_bottom === 'green', 'bg-blue-500': gear.affinity_bottom === 'blue' }" />
-                      {{ gear.affinity_bottom.charAt(0).toUpperCase() + gear.affinity_bottom.slice(1) }}
-                    </span>
-                    <SelectValue v-else placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="red"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-red-500" />Red</span></SelectItem>
-                    <SelectItem value="green"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-green-500" />Green</span></SelectItem>
-                    <SelectItem value="blue"><span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-blue-500" />Blue</span></SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+            <AffinityPicker v-model:top="gear.affinity_top" v-model:bottom="gear.affinity_bottom" v-model:left="gear.affinity_left" v-model:right="gear.affinity_right" />
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="crafting">
+        <div class="grid grid-cols-[300px_1fr] gap-6 mt-4">
+          <GearImageCard :image-path="gear.image_path" :name="gear.name" />
+
+          <div class="flex flex-col gap-4">
+            <CraftingCostEditor
+              :costs="gear.crafting_costs"
+              :locations="allLocations"
+              v-model:crafting-location="gear.crafting_location"
+              v-model:gained-by="gear.gained_by"
+              @add-cost="addCost"
+              @remove-cost="removeCost"
+            />
+          </div>
+        </div>
+      </TabsContent>
+
+      <!-- Picker dialogs (outside tabs so they overlay properly) -->
+      <TagPickerDialog v-model:open="keywordPickerOpen" title="Select Keywords" :options="allKeywords" :selected="gear.keywords" :descriptions="keywordDefs" @update:selected="(v) => gear!.keywords = v" />
+      <TagPickerDialog v-model:open="rulePickerOpen" title="Select Special Rules" :options="allRules" :selected="gear.special_rules" :descriptions="ruleDefs" @update:selected="(v) => gear!.special_rules = v" />
+    </Tabs>
 
     <!-- Navigation -->
     <Separator class="my-6" />
     <div class="flex items-center justify-between pb-8">
       <Button variant="outline" :disabled="prevId === null" @click="navigateTo(prevId)">
-        <ChevronLeft class="h-4 w-4 mr-1" />
-        Prev
+        <ChevronLeft class="h-4 w-4 mr-1" /> Prev
       </Button>
       <span v-if="gear" class="text-sm text-muted-foreground">
         {{ currentIndex + 1 }} / {{ navItems.length }}
       </span>
       <Button variant="outline" :disabled="nextId === null" @click="navigateTo(nextId)">
-        Next
-        <ChevronRight class="h-4 w-4 ml-1" />
+        Next <ChevronRight class="h-4 w-4 ml-1" />
       </Button>
     </div>
   </div>

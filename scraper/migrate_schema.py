@@ -112,6 +112,98 @@ def migrate(db_path: Path):
     else:
         print("  Table already exists: special_rule_definitions")
 
+    # --- Create settlement_locations table ---
+    if "settlement_locations" not in tables:
+        print("  Creating table: settlement_locations")
+        conn.execute("""
+            CREATE TABLE settlement_locations (
+                name TEXT PRIMARY KEY,
+                definition TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        # Seed from existing crafting_location values on gear
+        locations = conn.execute(
+            "SELECT DISTINCT crafting_location FROM gear WHERE crafting_location IS NOT NULL AND crafting_location != ''"
+        ).fetchall()
+        for (loc,) in locations:
+            conn.execute("INSERT OR IGNORE INTO settlement_locations (name) VALUES (?)", (loc.strip(),))
+        print(f"  Seeded {len(locations)} settlement locations")
+    else:
+        print("  Table already exists: settlement_locations")
+
+    # --- Create card_text_icons table ---
+    if "card_text_icons" not in tables:
+        print("  Creating table: card_text_icons")
+        conn.execute("""
+            CREATE TABLE card_text_icons (
+                tag TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL,
+                icon_url TEXT NOT NULL DEFAULT '',
+                description TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        icons = [
+            ("activation", "Activation"),
+            ("movement", "Movement"),
+            ("reaction", "Reaction"),
+            ("blue_affinity", "Blue Affinity"),
+            ("red_affinity", "Red Affinity"),
+            ("green_affinity", "Green Affinity"),
+            ("blue_puzzle", "Blue Puzzle Affinity"),
+            ("red_puzzle", "Red Puzzle Affinity"),
+            ("green_puzzle", "Green Puzzle Affinity"),
+            ("ai_card", "AI Card"),
+            ("monster_level", "Monster Level"),
+            ("pumpkin", "Pumpkin"),
+        ]
+        for tag, display_name in icons:
+            conn.execute("INSERT INTO card_text_icons (tag, display_name) VALUES (?, ?)", (tag, display_name))
+        print(f"  Seeded {len(icons)} card text icons")
+    else:
+        print("  Table already exists: card_text_icons")
+
+    # --- Create expansions table ---
+    if "expansions" not in tables:
+        print("  Creating table: expansions")
+        conn.execute("""
+            CREATE TABLE expansions (
+                name TEXT PRIMARY KEY,
+                description TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        existing = conn.execute("SELECT DISTINCT expansion FROM gear WHERE expansion IS NOT NULL AND expansion != ''").fetchall()
+        for (exp,) in existing:
+            conn.execute("INSERT OR IGNORE INTO expansions (name) VALUES (?)", (exp.strip(),))
+        print(f"  Seeded {len(existing)} expansions")
+    else:
+        print("  Table already exists: expansions")
+
+    # --- Create versions table ---
+    if "versions" not in tables:
+        print("  Creating table: versions")
+        conn.execute("""
+            CREATE TABLE versions (
+                name TEXT PRIMARY KEY,
+                description TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        # Seed with known KDM editions
+        known_versions = [
+            ("1.0", "Original 2015 Kickstarter release"),
+            ("1.3", "First major reprint / update"),
+            ("1.5", "2017 revised edition"),
+            ("1.6", "Gamblers Chest era update"),
+        ]
+        for name, desc in known_versions:
+            conn.execute("INSERT OR IGNORE INTO versions (name, description) VALUES (?, ?)", (name, desc))
+        # Also seed any versions found in gear data
+        existing = conn.execute("SELECT DISTINCT version FROM gear WHERE version IS NOT NULL AND version != ''").fetchall()
+        for (v,) in existing:
+            conn.execute("INSERT OR IGNORE INTO versions (name) VALUES (?)", (v,))
+        print(f"  Seeded {len(known_versions)} versions")
+    else:
+        print("  Table already exists: versions")
+
     # --- Fix 'weapon. melee' keyword bug ---
     rows = conn.execute(
         "SELECT id, gear_id FROM gear_keywords WHERE keyword = 'weapon. melee'"

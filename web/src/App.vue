@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRoute } from "vue-router";
+import { Toaster } from "@/components/ui/sonner";
 import { computed } from "vue";
 
 const route = useRoute();
@@ -8,6 +9,10 @@ const navItems = [
   { path: "/", label: "Items" },
   { path: "/keywords", label: "Keywords" },
   { path: "/special-rules", label: "Special Rules" },
+  { path: "/locations", label: "Locations" },
+  { path: "/expansions", label: "Expansions" },
+  { path: "/versions", label: "Versions" },
+  { path: "/icons", label: "Icons" },
 ];
 
 function isActive(path: string) {
@@ -44,5 +49,6 @@ function isActive(path: string) {
     <main>
       <router-view />
     </main>
+    <Toaster position="bottom-right" :duration="3000" />
   </div>
 </template>

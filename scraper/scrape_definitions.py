@@ -164,7 +164,8 @@ def main():
     # Get existing keywords and rules from DB
     db_keywords = {r[0] for r in conn.execute("SELECT keyword FROM keyword_definitions").fetchall()}
     db_rules = {r[0] for r in conn.execute("SELECT rule FROM special_rule_definitions").fetchall()}
-    print(f"DB has {len(db_keywords)} keywords, {len(db_rules)} special rules")
+    db_locations = {r[0] for r in conn.execute("SELECT name FROM settlement_locations").fetchall()}
+    print(f"DB has {len(db_keywords)} keywords, {len(db_rules)} special rules, {len(db_locations)} settlement locations")
 
     # Scrape keyword definitions
     kw_defs = scrape_definitions(
@@ -178,6 +179,13 @@ def main():
         f"{BASE_URL}/wiki/Category:Gear_Special_Rules",
         db_rules,
         "Special Rule",
+    )
+
+    # Scrape settlement location definitions
+    loc_defs = scrape_definitions(
+        f"{BASE_URL}/wiki/Category:Settlement_Locations",
+        db_locations,
+        "Settlement Location",
     )
 
     # Update database
@@ -199,11 +207,20 @@ def main():
         )
         rule_updated += 1
 
+    loc_updated = 0
+    for name, definition in loc_defs.items():
+        conn.execute(
+            "INSERT OR REPLACE INTO settlement_locations (name, definition) VALUES (?, ?)",
+            (name, definition),
+        )
+        loc_updated += 1
+
     conn.commit()
     conn.close()
 
     print(f"Updated {kw_updated} keyword definitions")
     print(f"Updated {rule_updated} special rule definitions")
+    print(f"Updated {loc_updated} settlement location definitions")
     print("Done.")
 
 

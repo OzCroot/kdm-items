@@ -5,6 +5,10 @@ import { fileURLToPath } from "url";
 import gearRouter from "./routes/gear.js";
 import keywordsRouter from "./routes/keywords.js";
 import specialRulesRouter from "./routes/special-rules.js";
+import locationsRouter from "./routes/locations.js";
+import versionsRouter from "./routes/versions.js";
+import expansionsRouter from "./routes/expansions.js";
+import iconsRouter from "./routes/icons.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -18,6 +22,10 @@ app.use(express.json());
 app.use("/api/gear", gearRouter);
 app.use("/api/keywords", keywordsRouter);
 app.use("/api/special-rules", specialRulesRouter);
+app.use("/api/locations", locationsRouter);
+app.use("/api/versions", versionsRouter);
+app.use("/api/expansions", expansionsRouter);
+app.use("/api/icons", iconsRouter);
 
 // Serve card images
 app.use("/api/images", express.static(IMAGES_PATH));

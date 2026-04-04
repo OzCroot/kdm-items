@@ -18,6 +18,22 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 DB_PATH = Path(os.environ.get("DB_PATH", Path(__file__).parent.parent / "data" / "kdm_gear.db"))
 REQUEST_DELAY = 0.5  # seconds between requests to be polite
 
+# Map wiki icon alt texts to normalized tag names for card text
+ICON_TAG_MAP = {
+    "Activation": "activation",
+    "Movement": "movement",
+    "Reaction": "reaction",
+    "Blue Affinity Icon": "blue_affinity",
+    "Red Affinity Box": "red_affinity",
+    "Green Affinity Box": "green_affinity",
+    "Blue Puzzle Affinity": "blue_puzzle",
+    "Red Puzzle Affinity": "red_puzzle",
+    "Green Puzzle Affinity": "green_puzzle",
+    "AI Card Icon": "ai_card",
+    "Monster Level": "monster_level",
+    "Pumpkin": "pumpkin",
+}
+
 
 def fetch_page(url: str) -> str:
     """Fetch a wiki page and return its HTML content."""
@@ -35,6 +51,34 @@ def clean_html(text: str) -> str:
     text = re.sub(r"\n ", "\n", text)
     text = text.strip()
     return text
+
+
+def parse_card_text(html: str) -> str:
+    """Parse card text HTML, converting icon images to [tag] format before stripping HTML."""
+    # Replace known icon images with [tag] tokens
+    def replace_icon(m: re.Match) -> str:
+        alt = m.group(1)
+        tag = ICON_TAG_MAP.get(alt)
+        return f"[{tag}]" if tag else ""
+
+    text = re.sub(r'<img[^>]*alt="([^"]+)"[^>]*/?\s*>', replace_icon, html)
+    # Also handle the KDM-Font spans that sometimes duplicate the icon
+    text = re.sub(r'<span[^>]*class="mobile-workaround-[^"]*"[^>]*>[^<]*</span>', "", text)
+    # Mark paragraph and line breaks before stripping
+    text = re.sub(r"</p>", "\n\n", text)
+    text = re.sub(r"<br\s*/?>", "\n", text)
+    # Strip all remaining HTML
+    text = re.sub(r"<[^>]+>", "", text)
+    text = unescape(text)
+    # Split into paragraphs (double newline), collapse whitespace within each
+    paragraphs = re.split(r"\n\n+", text)
+    result = []
+    for para in paragraphs:
+        # Collapse all whitespace (including single newlines) within a paragraph
+        para = re.sub(r"\s+", " ", para).strip()
+        if para:
+            result.append(para)
+    return "\n".join(result)
 
 
 # ---------------------------------------------------------------------------
@@ -239,12 +283,12 @@ def parse_gear_page(html: str, name: str) -> dict:
 
     # --- Parse card text from the body ---
     card_text_match = re.search(
-        r'id="Card_Text".*?</h\d>(.*?)(?=<h\d|<div\s+class="printfooter)',
+        r'id="Card_Text".*?</h\d>(.*?)(?=<h\d|<!--\s*NewPP|<div\s+class="printfooter|<div\s+id="catlinks)',
         content,
         re.DOTALL,
     )
     if card_text_match:
-        data["card_text"] = clean_html(card_text_match.group(1)).strip()
+        data["card_text"] = parse_card_text(card_text_match.group(1))
 
     # --- Parse crafting location ---
     craft_match = re.search(
@@ -257,7 +301,7 @@ def parse_gear_page(html: str, name: str) -> dict:
 
     # --- Parse crafting cost ---
     cost_match = re.search(
-        r'id="Cost".*?</h\d>(.*?)(?=<h\d|<div\s+class="printfooter)',
+        r'id="Cost".*?</h\d>(.*?)(?=<h\d|<!--\s*NewPP|<div\s+class="printfooter|<div\s+id="catlinks)',
         content,
         re.DOTALL,
     )
