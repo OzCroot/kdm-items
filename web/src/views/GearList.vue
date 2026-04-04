@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
-import { listGear, listKeywords, listSpecialRules } from "../api";
-import type { GearListItem } from "../types";
+import { useGearFiltersStore } from "../stores/gearFilters";
+import { usePerPage } from "../composables/usePerPage";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { SlidersHorizontal } from "lucide-vue-next";
 import {
   Table,
   TableBody,
@@ -16,170 +20,135 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const items = ref<GearListItem[]>([]);
-const allKeywords = ref<string[]>([]);
-const allRules = ref<string[]>([]);
-const loading = ref(true);
-
-const search = ref("");
-const filterTypes = ref<string[]>([]);
-const filterExpansions = ref<string[]>([]);
-const filterKeywords = ref<string[]>([]);
-const filterRules = ref<string[]>([]);
-const filterIssues = ref(false);
-const sortField = ref<keyof GearListItem>("name");
-const sortAsc = ref(true);
+const store = useGearFiltersStore();
+const page = ref(1);
+const perPage = usePerPage();
 
 const typeOptions = ["weapon", "armor", "item", "other"];
 
-const expansions = computed(() => {
-  const set = new Set(items.value.map((i) => i.expansion).filter(Boolean));
-  return [...set].sort() as string[];
+const paged = computed(() => {
+  const start = (page.value - 1) * perPage.value;
+  return store.filtered.slice(start, start + perPage.value);
 });
 
-const filtered = computed(() => {
-  let result = items.value;
+// Reset page when filters change
+watch(
+  [() => store.search, () => store.filterTypes, () => store.filterExpansions, () => store.filterKeywords, () => store.filterRules, () => store.filterIssues],
+  () => { page.value = 1; },
+  { deep: true },
+);
 
-  if (search.value) {
-    const q = search.value.toLowerCase();
-    result = result.filter((i) => i.name.toLowerCase().includes(q));
-  }
-  if (filterTypes.value.length) {
-    result = result.filter((i) => filterTypes.value.includes(i.type || ""));
-  }
-  if (filterExpansions.value.length) {
-    result = result.filter((i) => filterExpansions.value.includes(i.expansion || ""));
-  }
+// Refetch when server-side filters change
+watch(
+  [() => store.filterKeywords, () => store.filterRules, () => store.filterIssues],
+  () => { store.fetchData(); },
+  { deep: true },
+);
 
-  const field = sortField.value;
-  result = [...result].sort((a, b) => {
-    const av = a[field] ?? "";
-    const bv = b[field] ?? "";
-    const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true });
-    return sortAsc.value ? cmp : -cmp;
-  });
-
-  return result;
-});
-
-function toggleSort(field: keyof GearListItem) {
-  if (sortField.value === field) {
-    sortAsc.value = !sortAsc.value;
-  } else {
-    sortField.value = field;
-    sortAsc.value = true;
-  }
-}
-
-function sortIndicator(field: keyof GearListItem) {
-  if (sortField.value !== field) return "";
-  return sortAsc.value ? " ↑" : " ↓";
-}
-
-async function fetchData() {
-  loading.value = true;
-  const params: Record<string, string> = {};
-  if (filterKeywords.value.length) params.keyword = filterKeywords.value.join(",");
-  if (filterRules.value.length) params.rule = filterRules.value.join(",");
-  if (filterIssues.value) params.issues = "true";
-  items.value = await listGear(params);
-  loading.value = false;
-}
-
-onMounted(async () => {
-  const [kws, rules] = await Promise.all([listKeywords(), listSpecialRules()]);
-  allKeywords.value = kws;
-  allRules.value = rules;
-  await fetchData();
-});
-
-watch([filterKeywords, filterRules, filterIssues], fetchData);
+onMounted(() => store.init());
 </script>
 
 <template>
   <div>
     <div class="flex flex-wrap gap-2 mb-4 items-start">
       <Input
-        v-model="search"
+        v-model="store.search"
         type="text"
         placeholder="Search by name..."
         class="flex-1 min-w-[200px]"
       />
       <MultiSelect
-        v-model="filterTypes"
+        v-model="store.filterTypes"
         :options="typeOptions"
         placeholder="All types"
         class="w-[180px]"
       />
       <MultiSelect
-        v-model="filterExpansions"
-        :options="expansions"
+        v-model="store.filterExpansions"
+        :options="store.expansionOptions"
         placeholder="All expansions"
         class="w-[200px]"
       />
       <MultiSelect
-        v-model="filterKeywords"
-        :options="allKeywords"
+        v-model="store.filterKeywords"
+        :options="store.allKeywordOptions"
         placeholder="All keywords"
         class="w-[180px]"
       />
       <MultiSelect
-        v-model="filterRules"
-        :options="allRules"
+        v-model="store.filterRules"
+        :options="store.allRuleOptions"
         placeholder="All rules"
         class="w-[180px]"
       />
-      <div class="flex items-center gap-2 h-9">
-        <Checkbox
-          id="issues"
-          :checked="filterIssues"
-          @update:checked="(v: boolean) => filterIssues = v"
-        />
-        <Label for="issues" class="whitespace-nowrap cursor-pointer">Issues only</Label>
-      </div>
+      <Popover>
+        <PopoverTrigger as-child>
+          <Button variant="outline" size="icon" class="h-9 w-9 shrink-0">
+            <SlidersHorizontal class="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent class="w-48" align="end">
+          <div class="flex items-center gap-2">
+            <Checkbox
+              id="issues"
+              :checked="store.filterIssues"
+              @update:checked="(v: boolean | 'indeterminate') => { store.filterIssues = v === true; store.fetchData() }"
+            />
+            <Label for="issues" class="text-sm">Issues only</Label>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
 
-    <p class="text-sm text-muted-foreground mb-2">{{ filtered.length }} items</p>
+    <div v-if="store.loading" class="text-center py-8 text-muted-foreground">Loading...</div>
 
-    <div v-if="loading" class="text-center py-8 text-muted-foreground">Loading...</div>
+    <template v-else>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead class="cursor-pointer select-none hover:text-foreground w-[30%]" @click="store.toggleSort('name')">
+              Name{{ store.sortIndicator("name") }}
+            </TableHead>
+            <TableHead class="cursor-pointer select-none hover:text-foreground w-[10%]" @click="store.toggleSort('type')">
+              Type{{ store.sortIndicator("type") }}
+            </TableHead>
+            <TableHead class="cursor-pointer select-none hover:text-foreground w-[25%]" @click="store.toggleSort('expansion')">
+              Expansion{{ store.sortIndicator("expansion") }}
+            </TableHead>
+            <TableHead class="cursor-pointer select-none hover:text-foreground w-[25%]" @click="store.toggleSort('category')">
+              Category{{ store.sortIndicator("category") }}
+            </TableHead>
+            <TableHead class="cursor-pointer select-none hover:text-foreground w-[10%]" @click="store.toggleSort('version')">
+              Ver{{ store.sortIndicator("version") }}
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="item in paged" :key="item.id">
+            <TableCell>
+              <router-link :to="`/gear/${item.id}`" class="text-blue-400 hover:underline">
+                {{ item.name }}
+              </router-link>
+            </TableCell>
+            <TableCell>
+              <Badge :variant="(item.type as any) || 'other'">
+                {{ item.type || "?" }}
+              </Badge>
+            </TableCell>
+            <TableCell>{{ item.expansion }}</TableCell>
+            <TableCell>{{ item.category }}</TableCell>
+            <TableCell>{{ item.version }}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
 
-    <Table v-else>
-      <TableHeader>
-        <TableRow>
-          <TableHead class="cursor-pointer select-none hover:text-foreground w-[30%]" @click="toggleSort('name')">
-            Name{{ sortIndicator("name") }}
-          </TableHead>
-          <TableHead class="cursor-pointer select-none hover:text-foreground w-[10%]" @click="toggleSort('type')">
-            Type{{ sortIndicator("type") }}
-          </TableHead>
-          <TableHead class="cursor-pointer select-none hover:text-foreground w-[25%]" @click="toggleSort('expansion')">
-            Expansion{{ sortIndicator("expansion") }}
-          </TableHead>
-          <TableHead class="cursor-pointer select-none hover:text-foreground w-[25%]" @click="toggleSort('category')">
-            Category{{ sortIndicator("category") }}
-          </TableHead>
-          <TableHead class="cursor-pointer select-none hover:text-foreground w-[10%]" @click="toggleSort('version')">
-            Ver{{ sortIndicator("version") }}
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <TableRow v-for="item in filtered" :key="item.id">
-          <TableCell>
-            <router-link :to="`/gear/${item.id}`" class="text-blue-400 hover:underline">
-              {{ item.name }}
-            </router-link>
-          </TableCell>
-          <TableCell>
-            <Badge :variant="(item.type as any) || 'other'">
-              {{ item.type || "?" }}
-            </Badge>
-          </TableCell>
-          <TableCell>{{ item.expansion }}</TableCell>
-          <TableCell>{{ item.category }}</TableCell>
-          <TableCell>{{ item.version }}</TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
+      <PaginationControls
+        :total="store.filtered.length"
+        :page="page"
+        :per-page="perPage"
+        @update:page="(v) => page = v"
+        @update:per-page="(v) => perPage = v"
+      />
+    </template>
   </div>
 </template>

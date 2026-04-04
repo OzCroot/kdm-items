@@ -59,6 +59,24 @@ export async function listKeywords(): Promise<string[]> {
   return rows.map((r) => r.keyword);
 }
 
+export interface GearRef {
+  id: number;
+  name: string;
+  type: string;
+  expansion: string;
+}
+
+export function createKeyword(keyword: string, definition?: string) {
+  return fetchJson("/api/keywords", {
+    method: "POST",
+    body: JSON.stringify({ keyword, definition: definition || "" }),
+  });
+}
+
+export function listKeywordItems(keyword: string): Promise<GearRef[]> {
+  return fetchJson(`/api/keywords/${encodeURIComponent(keyword)}/items`);
+}
+
 export function updateKeyword(oldKeyword: string, data: { keyword?: string; definition?: string }) {
   return fetchJson(`/api/keywords/${encodeURIComponent(oldKeyword)}`, {
     method: "PUT",
@@ -86,6 +104,17 @@ export function listSpecialRulesWithCounts(): Promise<SpecialRuleEntry[]> {
 export async function listSpecialRules(): Promise<string[]> {
   const rows = await listSpecialRulesWithCounts();
   return rows.map((r) => r.rule);
+}
+
+export function createSpecialRule(rule: string, definition?: string) {
+  return fetchJson("/api/special-rules", {
+    method: "POST",
+    body: JSON.stringify({ rule, definition: definition || "" }),
+  });
+}
+
+export function listSpecialRuleItems(rule: string): Promise<GearRef[]> {
+  return fetchJson(`/api/special-rules/${encodeURIComponent(rule)}/items`);
 }
 
 export function updateSpecialRule(oldRule: string, data: { rule?: string; definition?: string }) {

@@ -18,6 +18,44 @@ router.get("/", (_req: Request, res: Response) => {
   res.json(rows);
 });
 
+// POST /api/keywords - create a new keyword
+router.post("/", (req: Request, res: Response) => {
+  const db = getDb();
+  const { keyword, definition } = req.body;
+
+  if (!keyword || !keyword.trim()) {
+    res.status(400).json({ error: "Keyword name is required" });
+    return;
+  }
+
+  const existing = db.prepare("SELECT keyword FROM keyword_definitions WHERE keyword = ?").get(keyword.trim());
+  if (existing) {
+    res.status(409).json({ error: "Keyword already exists" });
+    return;
+  }
+
+  db.prepare("INSERT INTO keyword_definitions (keyword, definition) VALUES (?, ?)")
+    .run(keyword.trim(), definition || "");
+
+  res.status(201).json({ keyword: keyword.trim() });
+});
+
+// GET /api/keywords/:keyword/items - list gear items with this keyword
+router.get("/:keyword/items", (req: Request, res: Response) => {
+  const db = getDb();
+  const keyword = decodeURIComponent(req.params.keyword);
+  const rows = db
+    .prepare(
+      `SELECT g.id, g.name, g.type, g.expansion
+       FROM gear g
+       JOIN gear_keywords gk ON g.id = gk.gear_id
+       WHERE gk.keyword = ?
+       ORDER BY g.name`
+    )
+    .all(keyword) as { id: number; name: string; type: string; expansion: string }[];
+  res.json(rows);
+});
+
 // PUT /api/keywords/:keyword - update keyword name and/or definition
 router.put("/:keyword", (req: Request, res: Response) => {
   const db = getDb();

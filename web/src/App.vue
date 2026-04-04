@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Separator } from "@/components/ui/separator";
 import { useRoute } from "vue-router";
 import { computed } from "vue";
 
@@ -41,7 +40,7 @@ function isActive(path: string) {
         </router-link>
       </nav>
     </header>
-    <Separator class="mb-6" />
+    <!-- nav tabs provide their own border-bottom visual -->
     <main>
       <router-view />
     </main>

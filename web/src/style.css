@@ -133,4 +133,7 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+  a, label[for], [role="button"], [role="checkbox"], [role="combobox"], [role="option"] {
+    cursor: pointer;
+  }
 }

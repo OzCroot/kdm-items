@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getGear, updateGear, imageUrl, listGear, listKeywordsWithCounts, listSpecialRulesWithCounts } from "../api";
+import { getGear, updateGear, imageUrl, listKeywordsWithCounts, listSpecialRulesWithCounts } from "../api";
 import type { KeywordEntry, SpecialRuleEntry } from "../api";
-import type { GearDetail, GearListItem } from "../types";
+import type { GearDetail } from "../types";
+import { useGearFiltersStore } from "../stores/gearFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,9 +25,9 @@ import { X, Plus, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-vue-next";
 
 const props = defineProps<{ id: string }>();
 const router = useRouter();
+const store = useGearFiltersStore();
 
 const gear = ref<GearDetail | null>(null);
-const allItems = ref<GearListItem[]>([]);
 const loading = ref(true);
 const saving = ref(false);
 const saved = ref(false);
@@ -42,15 +43,17 @@ const newCostQuantity = ref(1);
 
 const gearId = computed(() => parseInt(props.id, 10));
 
+// Use the store's filtered list for prev/next navigation
+const navItems = computed(() => store.filtered);
 const currentIndex = computed(() =>
-  allItems.value.findIndex((i) => i.id === gearId.value)
+  navItems.value.findIndex((i) => i.id === gearId.value)
 );
 const prevId = computed(() =>
-  currentIndex.value > 0 ? allItems.value[currentIndex.value - 1].id : null
+  currentIndex.value > 0 ? navItems.value[currentIndex.value - 1].id : null
 );
 const nextId = computed(() =>
-  currentIndex.value < allItems.value.length - 1
-    ? allItems.value[currentIndex.value + 1].id
+  currentIndex.value < navItems.value.length - 1
+    ? navItems.value[currentIndex.value + 1].id
     : null
 );
 
@@ -59,11 +62,12 @@ async function load() {
   error.value = "";
   try {
     gear.value = await getGear(gearId.value);
-    if (!allItems.value.length) {
-      const [items, kws, rules] = await Promise.all([
-        listGear(), listKeywordsWithCounts(), listSpecialRulesWithCounts(),
+    // Ensure store is initialized for prev/next navigation
+    await store.init();
+    if (!allKeywordEntries.value.length) {
+      const [kws, rules] = await Promise.all([
+        listKeywordsWithCounts(), listSpecialRulesWithCounts(),
       ]);
-      allItems.value = items;
       allKeywordEntries.value = kws;
       allRuleEntries.value = rules;
     }
@@ -512,7 +516,7 @@ watch(() => props.id, load);
         Prev
       </Button>
       <span v-if="gear" class="text-sm text-muted-foreground">
-        {{ currentIndex + 1 }} / {{ allItems.length }}
+        {{ currentIndex + 1 }} / {{ navItems.length }}
       </span>
       <Button variant="outline" :disabled="nextId === null" @click="navigateTo(nextId)">
         Next
