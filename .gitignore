@@ -13,6 +13,10 @@ data/kdm_gear.db-shm
 data/kdm_gear.db-wal
 data/images/
 
+# Generated data exports
+grid/public/gear-data.json
+grid/public/images
+
 # Node
 node_modules/
 
