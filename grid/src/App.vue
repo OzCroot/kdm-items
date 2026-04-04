@@ -16,6 +16,8 @@ const selectedCell = ref<[number, number] | null>(null);
 const searchOpen = ref(false);
 const savedGrids = ref<SavedGrid[]>([]);
 const saveName = ref("");
+const dragFrom = ref<[number, number] | null>(null);
+const dragOverCell = ref<[number, number] | null>(null);
 
 const links = computed<AffinityLink[]>(() => findAffinityLinks(grid.value));
 const linkCount = computed(() => links.value.length);
@@ -44,6 +46,31 @@ function clearCell(row: number, col: number) {
 
 function clearGrid() {
   grid.value = [[null, null, null], [null, null, null], [null, null, null]];
+}
+
+// Drag and drop
+function onDragStart(row: number, col: number) {
+  dragFrom.value = [row, col];
+}
+
+function onDragOver(row: number, col: number) {
+  dragOverCell.value = [row, col];
+}
+
+function onDragLeave() {
+  dragOverCell.value = null;
+}
+
+function onDrop(row: number, col: number) {
+  if (!dragFrom.value) return;
+  const [fromRow, fromCol] = dragFrom.value;
+  if (fromRow === row && fromCol === col) return;
+  // Swap cells
+  const temp = grid.value[row][col];
+  grid.value[row][col] = grid.value[fromRow][fromCol];
+  grid.value[fromRow][fromCol] = temp;
+  dragFrom.value = null;
+  dragOverCell.value = null;
 }
 
 // Save/Load
@@ -92,7 +119,7 @@ onMounted(() => {
 
     <!-- Grid -->
     <div class="relative mb-8">
-      <div class="grid grid-cols-3 gap-1 w-fit mx-auto">
+      <div class="grid grid-cols-3 gap-2 w-fit mx-auto">
         <template v-for="(row, ri) in grid" :key="ri">
           <GridCell
             v-for="(cell, ci) in row"
@@ -101,9 +128,14 @@ onMounted(() => {
             :row="ri"
             :col="ci"
             :links="links"
+            :drag-over="dragOverCell?.[0] === ri && dragOverCell?.[1] === ci"
             @click="cell ? undefined : openSearch(ri, ci)"
             @clear="clearCell(ri, ci)"
             @replace="openSearch(ri, ci)"
+            @dragstart="onDragStart"
+            @dragover="onDragOver"
+            @dragleave="onDragLeave"
+            @drop="onDrop"
           />
         </template>
       </div>

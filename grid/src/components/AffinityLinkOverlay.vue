@@ -5,10 +5,10 @@ defineProps<{
   links: AffinityLink[];
 }>();
 
-// Cell dimensions: 144px wide (w-36), 192px tall (h-48), 4px gap
-const CELL_W = 144;
-const CELL_H = 192;
-const GAP = 4;
+// Cell dimensions: 208px wide (w-52), 256px tall (h-64), 8px gap
+const CELL_W = 208;
+const CELL_H = 256;
+const GAP = 8;
 
 function linkStyle(link: AffinityLink) {
   const [r1, c1] = link.from;
