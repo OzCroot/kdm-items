@@ -1,0 +1,59 @@
+name: Deploy Grid App
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: grid/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: grid
+
+      - name: Build
+        run: npm run build
+        working-directory: grid
+
+      - name: Clone deployment repo
+        run: |
+          git clone --depth 1 https://x-access-token:${{ secrets.DEPLOY_PAT }}@github.com/OzCroot/kdm-gear-grid.git deploy
+
+      - name: Update app files
+        run: |
+          cd deploy
+
+          # Remove old app build artifacts only
+          rm -f index.html
+          rm -rf assets
+
+          # Copy new build output
+          cp -r ../grid/dist/* .
+
+          # Warn if data files are missing
+          if [ ! -f gear-data.json ]; then
+            echo "::warning::gear-data.json not found in deployment repo"
+          fi
+
+      - name: Commit and push
+        run: |
+          cd deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && echo "No changes to deploy" && exit 0
+          git commit -m "Deploy ${{ github.ref_name }}"
+          git push

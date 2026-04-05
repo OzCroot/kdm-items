@@ -23,7 +23,7 @@ const links = computed<AffinityLink[]>(() => findAffinityLinks(grid.value));
 const linkCount = computed(() => links.value.length);
 
 async function loadGear() {
-  const res = await fetch("/gear-data.json");
+  const res = await fetch(`${import.meta.env.BASE_URL}gear-data.json`);
   allGear.value = await res.json();
 }
 

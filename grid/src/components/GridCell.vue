@@ -3,6 +3,8 @@ import type { GearItem, AffinityLink } from "../types";
 import { computed } from "vue";
 import { X } from "lucide-vue-next";
 
+const baseUrl = import.meta.env.BASE_URL;
+
 const props = defineProps<{
   gear: GearItem | null;
   row: number;
@@ -98,7 +100,7 @@ function onDrop(e: DragEvent) {
       <div class="w-full aspect-square overflow-hidden bg-[var(--muted)]">
         <img
           v-if="gear.image_path"
-          :src="`/images/${gear.image_path}`"
+          :src="`${baseUrl}images/${gear.image_path}`"
           :alt="gear.name"
           class="w-full h-full object-cover object-top pointer-events-none"
         />

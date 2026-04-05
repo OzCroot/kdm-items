@@ -12,6 +12,7 @@ const emit = defineEmits<{
   select: [item: GearItem];
 }>();
 
+const baseUrl = import.meta.env.BASE_URL;
 const query = ref("");
 const inputRef = ref<HTMLInputElement | null>(null);
 const selectedIndex = ref(0);
@@ -94,7 +95,7 @@ const typeColors: Record<string, string> = {
             <div class="w-8 h-8 rounded bg-[var(--muted)] overflow-hidden shrink-0">
               <img
                 v-if="item.image_path"
-                :src="`/images/${item.image_path}`"
+                :src="`${baseUrl}images/${item.image_path}`"
                 :alt="item.name"
                 class="w-full h-full object-cover"
               />
