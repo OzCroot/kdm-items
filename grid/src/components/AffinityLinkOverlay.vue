@@ -12,7 +12,7 @@ const GAP = 8;
 
 function linkStyle(link: AffinityLink) {
   const [r1, c1] = link.from;
-  const [r2, c2] = link.to;
+  const [_r2, _c2] = link.to;
 
   const colorMap: Record<string, string> = {
     red: "#ef4444",

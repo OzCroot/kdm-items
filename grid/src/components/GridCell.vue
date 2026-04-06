@@ -70,7 +70,7 @@ function onDrop(e: DragEvent) {
       dragOver ? 'border-blue-500 bg-blue-500/10' : 'border-[var(--border)]',
     ]"
     :draggable="!!gear"
-    @click="emit(gear ? 'replace' : 'click')"
+    @click="gear ? emit('replace') : emit('click')"
     @dragstart="onDragStart"
     @dragover="onDragOver"
     @dragleave="emit('dragleave')"
