@@ -21,7 +21,7 @@ jobs:
           cache-dependency-path: grid/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         working-directory: grid
 
       - name: Build
