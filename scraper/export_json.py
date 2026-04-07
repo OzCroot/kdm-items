@@ -1,6 +1,4 @@
-"""
-Export all gear data to a static JSON file for the gear grid app.
-"""
+"""Export all gear data to a static JSON file for the gear grid app."""
 
 import os
 import json
@@ -20,28 +18,27 @@ def export():
         gear = dict(row)
         gear_id = gear["id"]
 
-        # Keywords
-        keywords = [r["keyword"] for r in conn.execute(
-            "SELECT keyword FROM gear_keywords WHERE gear_id = ?", (gear_id,)
-        ).fetchall()]
+        gear["keywords"] = [
+            r["keyword"] for r in conn.execute(
+                "SELECT keyword FROM gear_keywords WHERE gear_id = ?", (gear_id,)
+            ).fetchall()
+        ]
 
-        # Special rules
-        rules = [r["rule"] for r in conn.execute(
-            "SELECT rule FROM gear_special_rules WHERE gear_id = ?", (gear_id,)
-        ).fetchall()]
+        gear["special_rules"] = [
+            r["rule"] for r in conn.execute(
+                "SELECT rule FROM gear_special_rules WHERE gear_id = ?", (gear_id,)
+            ).fetchall()
+        ]
 
-        # Crafting costs
-        costs = [{"resource": r["resource"], "quantity": r["quantity"]} for r in conn.execute(
-            "SELECT resource, quantity FROM crafting_costs WHERE gear_id = ?", (gear_id,)
-        ).fetchall()]
+        gear["crafting_costs"] = [
+            {"resource": r["resource"], "quantity": r["quantity"]} for r in conn.execute(
+                "SELECT resource, quantity FROM crafting_costs WHERE gear_id = ?", (gear_id,)
+            ).fetchall()
+        ]
 
-        # Remove raw_json and special_rules_names (redundant)
+        # Remove redundant fields
         del gear["raw_json"]
         del gear["special_rules_names"]
-
-        gear["keywords"] = keywords
-        gear["special_rules"] = rules
-        gear["crafting_costs"] = costs
 
         items.append(gear)
 
